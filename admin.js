@@ -519,15 +519,16 @@ function initQrTab() {
 async function getQrUrl() {
   const base  = (document.getElementById('qrBaseUrl').value || '').trim();
   const table = parseInt(document.getElementById('qrTableSelect').value);
+  
   if (!base) return '';
-  const t = tableStates[table];
-  if (!t || t.status !== 'open') {
-    // QR ไม่มี token — แสดง warning
-    return null;
-  }
+
+  // สร้าง URL ใหม่โดยใส่แค่เลขโต๊ะ (table)
   const url = new URL(base);
   url.searchParams.set('table', table);
-  url.searchParams.set('token', t.token);
+  
+  // ตัดบรรทัด url.searchParams.set('token', t.token); ออกไปเลย
+  // เพื่อให้ Link คงที่ตลอดกาลสำหรับโต๊ะนั้นๆ
+  
   return url.toString();
 }
 
