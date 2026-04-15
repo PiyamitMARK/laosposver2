@@ -469,6 +469,29 @@ window.addEventListener('resize', () => {
   setOffset(isOpen ? 0 : closedOffset);
 });
 
+// ==================== QR Auto-Select Table ====================
+function initFromQR() {
+  const params = new URLSearchParams(window.location.search);
+  const tableParam = params.get('table');
+  if (tableParam) {
+    const tableNum = parseInt(tableParam);
+    if (tableNum >= 1 && tableNum <= 20) {
+      selectTable(tableNum);
+
+      // ล็อคโต๊ะ — ซ่อน table bar ทั้งหมด ลูกค้าเปลี่ยนโต๊ะไม่ได้
+      const tableBar = document.querySelector('.table-bar');
+      if (tableBar) tableBar.style.display = 'none';
+
+      // แสดง banner บอกลูกค้าว่ากำลังสั่งโต๊ะไหน
+      const banner = document.createElement('div');
+      banner.className = 'qr-table-banner';
+      banner.innerHTML = `<span class="qr-table-icon">🪑</span> โต๊ะ ${tableNum}`;
+      const productsSection = document.querySelector('.products-section');
+      if (productsSection) productsSection.prepend(banner);
+    }
+  }
+}
+
 // ==================== Init ====================
 setDate();
 renderProducts();
@@ -476,3 +499,4 @@ renderCart();
 loadOrderNumber();
 updateOverlayTop();
 window.addEventListener('resize', updateOverlayTop);
+initFromQR();
