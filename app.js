@@ -199,7 +199,7 @@ function renderProducts() {
 function addToCart({ id, name, price, image }) {
   cart.push({ id, name, price: parseFloat(price), qty: 1, image, table: selectedTable });
   renderCart();
-  if (window.innerWidth <= 900) openCartOnMobile();
+  // ไม่เปิด cart อัตโนมัติ — ให้ลูกค้ากดเองเมื่อพร้อม
 }
 
 function removeFromCart(index) {
