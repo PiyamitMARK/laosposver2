@@ -123,13 +123,21 @@ function setDate() {
  * 5. หลังสั่งเสร็จ → ยังใช้ session เดิมต่อได้ (token ไม่หาย จนกว่า Admin ปิดโต๊ะ)
  */
 
-async function validateSession(tableNum, tokenParam) {
-  const snap = await get(ref(db, `tables/${tableNum}`));
-  if (!snap.exists()) return false;
-  
-  const data = snap.val();
-  // เช็กแค่ว่าโต๊ะเปิดอยู่ไหมพอ ไม่ต้องสน tokenParam
-  return data.status === 'open'; 
+async function validateSession(tableNum, token) {
+  try {
+    const snap = await get(ref(db, `tables/${tableNum}`));
+    if (!snap.exists()) return false;
+    const data = snap.val();
+    if (data.status !== 'open') return false;
+    if (data.token !== token) return false;
+    // ตรวจอายุ token (4 ชั่วโมง)
+    const opened = new Date(data.openedAt).getTime();
+    const now = Date.now();
+    if (now - opened > 4 * 60 * 60 * 1000) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function showBlockedScreen(reason) {
