@@ -4,15 +4,10 @@
  * Admin button: hidden Easter egg (logo tap ×5)
  */
 
-import { runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-async function getNextOrderNumber() {
-  const orderCountRef = ref(db, 'config/lastOrderNum');
-  const result = await runTransaction(orderCountRef, (currentValue) => {
-    return (currentValue || 0) + 1;
-  });
-  return result.snapshot.val();
-}
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getDatabase, ref, push, update, get, onValue
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAOkyKQA3GapMvPRwy4CsiKIb0kz6PvsUg",
