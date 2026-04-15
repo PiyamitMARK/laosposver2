@@ -139,11 +139,11 @@ async function clearAllOrders() {
 
 // ==================== Firebase: Table Actions ====================
 async function openTable(tableNum) {
-  const token = generateToken();
-  await set(ref(db, `tables/${tableNum}`), {
+  const tableRef = ref(db, `tables/${tableNum}`);
+  await update(tableRef, {
     status: 'open',
-    token,
-    openedAt: new Date().toISOString(),
+    // ไม่ต้องมี token หรือใช้ token เป็นค่าคงที่ เช่น 'permanent'
+    token: 'active' 
   });
 }
 
