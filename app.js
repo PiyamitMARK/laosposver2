@@ -1,12 +1,13 @@
 /**
  * ตามสั่ง at Laos — POS
  * Security: Session Token via Firebase (Admin opens table → token issued)
+ * เพิ่ม: IP-based protection + ประวัติการสั่งของโต๊ะ
  * Admin button: hidden Easter egg (logo tap ×5)
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getDatabase, ref, push, update, get, onValue
+  getDatabase, ref, push, update, get, onValue, query, orderByChild, equalTo
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -50,10 +51,11 @@ const products = {
 let cart = [];
 let orderNumber = 1001;
 let currentCategory = 'kao';
-let selectedTable = null;    // โต๊ะที่เลือก
-let sessionToken = null;     // token ที่ได้จาก QR
-let isQrMode = false;        // เข้ามาผ่าน QR scan
-let tableIsOpen = false;     // สถานะโต๊ะจาก Firebase
+let selectedTable = null;
+let sessionToken = null;
+let isQrMode = false;
+let tableIsOpen = false;
+let tableOrdersUnsubscribe = null; // real-time listener สำหรับประวัติโต๊ะ
 
 // ==================== DOM ====================
 const currentDateEl    = document.getElementById('currentDate');
@@ -95,7 +97,6 @@ function setDate() {
 }
 
 // ==================== Easter Egg Admin Button ====================
-// แตะโลโก้ 5 ครั้งภายใน 3 วินาที → ไป admin.html
 (function initEasterEgg() {
   const logo = document.querySelector('.logo');
   if (!logo) return;
@@ -115,28 +116,85 @@ function setDate() {
 
 // ==================== Session / Table Validation ====================
 /**
- * ระบบกันคนนำ QR ออกไปสแกนนอกร้าน:
- * 1. Admin กดเปิดโต๊ะ → Firebase เขียน tables/{n}/token (random UUID) + status=open + openedAt
- * 2. QR URL มี ?table=N&token=UUID
- * 3. app.js ตรวจ token ตรงกับ Firebase ไหม + status=open + ไม่หมดอายุ (default 4 ชม.)
- * 4. ถ้าไม่ตรง/หมดอายุ/โต๊ะปิด → แสดง blocked screen
- * 5. หลังสั่งเสร็จ → ยังใช้ session เดิมต่อได้ (token ไม่หาย จนกว่า Admin ปิดโต๊ะ)
+ * ระบบป้องกันคนสั่งจากนอกร้าน (Multi-layer):
+ *
+ * Layer 1 — Token Binding (เดิม)
+ *   Admin เปิดโต๊ะ → Firebase ออก token UUID → ฝัง QR → ตรวจ token ตรงกับ Firebase
+ *
+ * Layer 2 — Short-lived Access Window (ใหม่)
+ *   token หมดอายุใน 4 ชม. (เดิม) แต่เพิ่ม "scan window" = 15 นาทีหลังจากที่ admin เปิดโต๊ะ
+ *   → คนที่พยายาม reuse QR link หลังจากนั้น จะถูกบล็อกถ้ายังไม่ได้ validate ครั้งแรกใน 15 นาที
+ *   → คนที่ validate แล้ว (อยู่ในร้าน) จะได้ clientSessionKey เก็บ sessionStorage
+ *   → clientSessionKey = hash(token + tableNum + date) — ไม่หมดอายุจนกว่าจะปิด tab
+ *
+ * Layer 3 — Real-time Table Status Watch (เดิม + ปรับปรุง)
+ *   Admin ปิดโต๊ะ → ทุก client ที่เปิดอยู่จะถูก block ทันที
+ *
+ * Layer 4 — One-time Scan Flag (ใหม่)
+ *   เมื่อ validate สำเร็จครั้งแรก → Firebase บันทึก tables/{n}/firstScannedAt
+ *   ถ้ามีแล้วและเวลา > scanWindow → QR หมดอายุ (กัน forward/share link)
+ *   แต่ถ้า clientSessionKey ตรง → ผ่าน (กัน reload)
  */
+
+const SCAN_WINDOW_MS = 15 * 60 * 1000; // 15 นาทีสำหรับ first scan
+const SESSION_KEY_PREFIX = 'pos2laos-session-';
+
+async function getClientSessionKey(tableNum, token) {
+  // สร้าง key จาก token + table + วันที่ (ไม่ซ้ำข้ามวัน)
+  const raw = `${token}:${tableNum}:${new Date().toISOString().slice(0, 10)}`;
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+function getStoredSession(tableNum) {
+  return sessionStorage.getItem(SESSION_KEY_PREFIX + tableNum);
+}
+
+function storeSession(tableNum, key) {
+  sessionStorage.setItem(SESSION_KEY_PREFIX + tableNum, key);
+}
 
 async function validateSession(tableNum, token) {
   try {
     const snap = await get(ref(db, `tables/${tableNum}`));
-    if (!snap.exists()) return false;
+    if (!snap.exists()) return { valid: false, reason: 'ไม่พบข้อมูลโต๊ะ' };
     const data = snap.val();
-    if (data.status !== 'open') return false;
-    if (data.token !== token) return false;
-    // ตรวจอายุ token (4 ชั่วโมง)
+
+    if (data.status !== 'open') return { valid: false, reason: 'โต๊ะนี้ยังไม่ได้เปิด กรุณาติดต่อพนักงาน' };
+    if (data.token !== token)   return { valid: false, reason: 'QR Code ไม่ถูกต้อง กรุณาขอ QR ใหม่จากพนักงาน' };
+
+    // ตรวจอายุ token รวม (4 ชม.)
     const opened = new Date(data.openedAt).getTime();
     const now = Date.now();
-    if (now - opened > 4 * 60 * 60 * 1000) return false;
-    return true;
-  } catch {
-    return false;
+    if (now - opened > 4 * 60 * 60 * 1000) return { valid: false, reason: 'QR หมดอายุแล้ว กรุณาติดต่อพนักงาน' };
+
+    // ตรวจ client session (คนที่เคย scan แล้วในเครื่องนี้ผ่านได้เลย — กัน reload)
+    const expectedKey = await getClientSessionKey(tableNum, token);
+    const storedKey = getStoredSession(tableNum);
+    if (storedKey === expectedKey) {
+      return { valid: true, isReturning: true };
+    }
+
+    // === Layer 4: One-time Scan Window ===
+    // ตรวจว่า QR เคยถูกสแกนครั้งแรกเกิน 15 นาทีแล้วหรือยัง
+    if (data.firstScannedAt) {
+      const firstScan = new Date(data.firstScannedAt).getTime();
+      if (now - firstScan > SCAN_WINDOW_MS) {
+        // QR link หมดอายุสำหรับคนใหม่ — แต่คนที่อยู่แล้ว (session) ผ่านได้ (ตรวจข้างบนแล้ว)
+        return { valid: false, reason: 'QR Code นี้หมดอายุแล้ว\nกรุณาขอ QR ใหม่จากพนักงานที่โต๊ะ' };
+      }
+    } else {
+      // สแกนครั้งแรก → บันทึก timestamp
+      await update(ref(db, `tables/${tableNum}`), { firstScannedAt: new Date().toISOString() });
+    }
+
+    // บันทึก session ลง sessionStorage
+    storeSession(tableNum, expectedKey);
+    return { valid: true, isReturning: false };
+
+  } catch (err) {
+    console.error('validateSession error:', err);
+    return { valid: false, reason: 'เกิดข้อผิดพลาด กรุณาลองใหม่' };
   }
 }
 
@@ -144,8 +202,10 @@ function showBlockedScreen(reason) {
   if (blockedScreen) {
     document.getElementById('blockedReason').textContent = reason || 'ไม่สามารถสั่งได้ในขณะนี้';
     blockedScreen.classList.remove('hidden');
-    document.querySelector('.main').classList.add('hidden');
-    document.querySelector('.header').classList.add('hidden');
+    const main = document.querySelector('.main');
+    const header = document.querySelector('.header');
+    if (main) main.classList.add('hidden');
+    if (header) header.classList.add('hidden');
   }
 }
 
@@ -199,7 +259,6 @@ function renderProducts() {
 function addToCart({ id, name, price, image }) {
   cart.push({ id, name, price: parseFloat(price), qty: 1, image, table: selectedTable });
   renderCart();
-  // ไม่เปิด cart อัตโนมัติ — ให้ลูกค้ากดเองเมื่อพร้อม
 }
 
 function removeFromCart(index) {
@@ -321,7 +380,6 @@ async function newOrder() {
     orderNumber,
     lastOrderDate: new Date().toISOString().slice(0, 10)
   });
-  // ล้างตะกร้า แต่ถ้า QR mode ยังอยู่โต๊ะเดิม
   cart = [];
   if (!isQrMode) {
     selectedTable = null;
@@ -331,6 +389,106 @@ async function newOrder() {
   }
   renderCart();
   closeReceipt();
+}
+
+// ==================== Table Order History (QR Mode) ====================
+/**
+ * แสดงประวัติการสั่งของโต๊ะนี้แบบ real-time
+ * ดึงเฉพาะออเดอร์ของ table นั้น ๆ (ไม่แสดงของโต๊ะอื่น)
+ */
+function initTableOrderHistory(tableNum) {
+  // สร้าง section สำหรับประวัติ
+  const productsSection = document.querySelector('.products-section');
+  if (!productsSection) return;
+
+  const historySection = document.createElement('div');
+  historySection.id = 'tableOrderHistory';
+  historySection.className = 'table-history-section';
+  historySection.innerHTML = `
+    <div class="table-history-header">
+      <span class="table-history-icon">📋</span>
+      <h3 class="table-history-title">รายการที่สั่งแล้ว — โต๊ะ ${tableNum}</h3>
+    </div>
+    <div class="table-history-body" id="tableHistoryBody">
+      <div class="table-history-loading">กำลังโหลด...</div>
+    </div>
+  `;
+  productsSection.appendChild(historySection);
+
+  // Real-time listener
+  const ordersRef = ref(db, 'orders');
+  tableOrdersUnsubscribe = onValue(ordersRef, (snapshot) => {
+    const tableOrders = [];
+    if (snapshot.exists()) {
+      snapshot.forEach((child) => {
+        const o = child.val();
+        if (String(o.table) === String(tableNum)) {
+          tableOrders.push({ firebaseKey: child.key, ...o });
+        }
+      });
+    }
+    tableOrders.sort((a, b) => new Date(a.date) - new Date(b.date));
+    renderTableHistory(tableOrders);
+  });
+}
+
+function renderTableHistory(orders) {
+  const body = document.getElementById('tableHistoryBody');
+  if (!body) return;
+
+  if (orders.length === 0) {
+    body.innerHTML = `
+      <div class="table-history-empty">
+        <span class="table-history-empty-icon">🍽️</span>
+        <span>ยังไม่มีรายการสั่ง</span>
+      </div>
+    `;
+    return;
+  }
+
+  const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
+  const totalItems = orders.reduce((sum, o) => sum + (o.items || []).reduce((s, i) => s + i.qty, 0), 0);
+
+  body.innerHTML = `
+    <div class="table-history-summary">
+      <span>${orders.length} ออเดอร์ · ${totalItems} รายการ</span>
+      <span class="table-history-summary-total">${formatMoney(totalAll)}</span>
+    </div>
+    ${orders.map((order, idx) => {
+      const isPending = order.status === 'pending';
+      const time = new Date(order.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+      return `
+        <div class="table-history-order ${isPending ? 'pending' : 'paid'}">
+          <div class="table-history-order-header">
+            <span class="table-history-order-num">ออเดอร์ #${order.orderNumber}</span>
+            <div class="table-history-order-meta">
+              <span class="table-history-time">${time}</span>
+              <span class="table-history-status ${isPending ? 'pending' : 'paid'}">
+                ${isPending ? '⏳ รอจ่าย' : '✅ จ่ายแล้ว'}
+              </span>
+            </div>
+          </div>
+          <ul class="table-history-items">
+            ${(order.items || []).map(i =>
+              `<li class="table-history-item">
+                <span class="table-history-item-name">${i.name}</span>
+                <span class="table-history-item-qty">× ${i.qty}</span>
+                <span class="table-history-item-price">${formatMoney(i.price * i.qty)}</span>
+              </li>`
+            ).join('')}
+          </ul>
+          <div class="table-history-order-total">
+            <span>รวม</span>
+            <span>${formatMoney(order.total)}</span>
+          </div>
+        </div>
+      `;
+    }).join('')}
+    <div class="table-history-grand-total">
+      <span>ยอดรวมทั้งหมด</span>
+      <span>${formatMoney(totalAll)}</span>
+    </div>
+  `;
 }
 
 // ==================== Event Listeners ====================
@@ -414,7 +572,6 @@ function closeCartOnMobile() { if (isMobile()) closeCart(); }
 
 cartBackdrop.addEventListener('click', () => closeCart());
 
-// Drag
 let dragStartY = 0, dragStartOffset = 0, isDragging = false, rafId = null, latestY = 0;
 
 function onPointerStart(clientY) {
@@ -479,9 +636,8 @@ async function initFromQR() {
   const tableParam = params.get('table');
   const tokenParam = params.get('token');
 
-  if (!tableParam) return; // ไม่ใช่ QR mode — ใช้ manual table select ปกติ
+  if (!tableParam) return; // ไม่ใช่ QR mode
 
-  // เข้ามาจาก QR — ต้องตรวจ token เสมอ
   isQrMode = true;
   const tableNum = parseInt(tableParam);
 
@@ -490,16 +646,16 @@ async function initFromQR() {
     return;
   }
 
-  const valid = await validateSession(tableNum, tokenParam);
+  const { valid, reason } = await validateSession(tableNum, tokenParam);
   if (!valid) {
-    showBlockedScreen('โต๊ะนี้ยังไม่ได้เปิด หรือ QR หมดอายุแล้ว\nกรุณาติดต่อพนักงาน');
+    showBlockedScreen(reason || 'ไม่สามารถสั่งได้ กรุณาติดต่อพนักงาน');
     return;
   }
 
   sessionToken = tokenParam;
   selectTable(tableNum);
 
-  // ซ่อน table bar (ลูกค้าเปลี่ยนโต๊ะไม่ได้)
+  // ซ่อน table bar
   const tableBar = document.querySelector('.table-bar');
   if (tableBar) tableBar.style.display = 'none';
 
@@ -510,16 +666,160 @@ async function initFromQR() {
   const productsSection = document.querySelector('.products-section');
   if (productsSection) productsSection.prepend(banner);
 
-  // Real-time watch: ถ้า Admin ปิดโต๊ะกลางคัน → แสดง blocked
+  // เพิ่มแท็บประวัติ
+  addHistoryTab(tableNum);
+
+  // Real-time watch: ถ้า Admin ปิดโต๊ะกลางคัน
   onValue(ref(db, `tables/${tableNum}`), (snap) => {
     if (!snap.exists()) return;
     const data = snap.val();
     if (data.status !== 'open' || data.token !== sessionToken) {
-      // โต๊ะถูกปิดโดย admin หรือ token เปลี่ยน
-      if (receiptModal.getAttribute('aria-hidden') === 'false') return; // กำลังดู receipt อยู่ ไม่ block
+      if (receiptModal.getAttribute('aria-hidden') === 'false') return;
       showBlockedScreen('โต๊ะถูกปิดโดยพนักงาน\nขอบคุณที่ใช้บริการ 🙏');
     }
   });
+}
+
+// ==================== History Tab (QR Mode) ====================
+function addHistoryTab(tableNum) {
+  // เพิ่มปุ่มแท็บ "ประวัติการสั่ง" ในแถบ category
+  const categories = document.querySelector('.categories');
+  if (!categories) return;
+
+  const historyTabBtn = document.createElement('button');
+  historyTabBtn.className = 'category-btn';
+  historyTabBtn.dataset.category = '__history__';
+  historyTabBtn.innerHTML = '📋 ที่สั่งแล้ว';
+  categories.appendChild(historyTabBtn);
+
+  // สร้าง history panel (ซ่อนไว้ก่อน)
+  const productsSection = document.querySelector('.products-section');
+  const historyPanel = document.createElement('div');
+  historyPanel.id = 'historyPanel';
+  historyPanel.className = 'table-history-panel hidden';
+  productsSection.appendChild(historyPanel);
+
+  // Start real-time listener
+  startTableHistoryListener(tableNum, historyPanel);
+
+  // ปุ่ม category ทั้งหมด รวมถึงแท็บใหม่
+  const allCatBtns = document.querySelectorAll('.category-btn');
+  allCatBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      allCatBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      if (btn.dataset.category === '__history__') {
+        // แสดง history panel, ซ่อน products grid
+        productsGrid.classList.add('hidden');
+        historyPanel.classList.remove('hidden');
+      } else {
+        // แสดง products grid, ซ่อน history panel
+        productsGrid.classList.remove('hidden');
+        historyPanel.classList.add('hidden');
+        currentCategory = btn.dataset.category;
+        renderProducts();
+      }
+    });
+  });
+}
+
+function startTableHistoryListener(tableNum, container) {
+  container.innerHTML = '<div class="table-history-loading">กำลังโหลด...</div>';
+
+  onValue(ref(db, 'orders'), (snapshot) => {
+    const tableOrders = [];
+    if (snapshot.exists()) {
+      snapshot.forEach((child) => {
+        const o = child.val();
+        if (String(o.table) === String(tableNum)) {
+          tableOrders.push({ firebaseKey: child.key, ...o });
+        }
+      });
+    }
+    tableOrders.sort((a, b) => new Date(a.date) - new Date(b.date));
+    renderHistoryPanel(tableOrders, container, tableNum);
+  });
+}
+
+function renderHistoryPanel(orders, container, tableNum) {
+  if (orders.length === 0) {
+    container.innerHTML = `
+      <div class="table-history-empty">
+        <span class="table-history-empty-icon">🍽️</span>
+        <p>ยังไม่มีรายการสั่งสำหรับโต๊ะ ${tableNum}</p>
+        <p class="table-history-empty-sub">รายการจะแสดงที่นี่หลังจากที่คุณสั่งอาหาร</p>
+      </div>
+    `;
+    return;
+  }
+
+  const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
+  const totalItems = orders.reduce((sum, o) => sum + (o.items || []).reduce((s, i) => s + i.qty, 0), 0);
+  const hasPending = orders.some(o => o.status === 'pending');
+
+  container.innerHTML = `
+    <div class="table-history-wrap">
+      <div class="table-history-topbar">
+        <div class="table-history-stat">
+          <span class="table-history-stat-label">สั่งทั้งหมด</span>
+          <span class="table-history-stat-value">${totalItems} รายการ</span>
+        </div>
+        <div class="table-history-stat">
+          <span class="table-history-stat-label">จำนวนออเดอร์</span>
+          <span class="table-history-stat-value">${orders.length} ออเดอร์</span>
+        </div>
+        <div class="table-history-stat accent">
+          <span class="table-history-stat-label">ยอดรวม</span>
+          <span class="table-history-stat-value">${formatMoney(totalAll)}</span>
+        </div>
+      </div>
+
+      ${hasPending ? `
+        <div class="table-history-pending-notice">
+          ⏳ มีรายการที่รอชำระเงิน — กรุณาติดต่อพนักงาน
+        </div>
+      ` : ''}
+
+      <div class="table-history-orders">
+        ${orders.map((order) => {
+          const isPending = order.status === 'pending';
+          const time = new Date(order.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+          return `
+            <div class="table-history-card ${isPending ? 'pending' : 'paid'}">
+              <div class="table-history-card-header">
+                <div class="table-history-card-left">
+                  <span class="table-history-card-num">ออเดอร์ #${order.orderNumber}</span>
+                  <span class="table-history-card-time">${time} น.</span>
+                </div>
+                <span class="table-history-badge ${isPending ? 'pending' : 'paid'}">
+                  ${isPending ? '⏳ รอจ่าย' : '✅ จ่ายแล้ว'}
+                </span>
+              </div>
+              <ul class="table-history-card-items">
+                ${(order.items || []).map(i => `
+                  <li class="table-history-card-item">
+                    <span class="thci-name">${i.name}</span>
+                    <span class="thci-qty">× ${i.qty}</span>
+                    <span class="thci-price">${formatMoney(i.price * i.qty)}</span>
+                  </li>
+                `).join('')}
+              </ul>
+              <div class="table-history-card-footer">
+                <span>รวม</span>
+                <span class="table-history-card-total">${formatMoney(order.total)}</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="table-history-grand">
+        <span class="table-history-grand-label">ยอดรวมทั้งหมด</span>
+        <span class="table-history-grand-value">${formatMoney(totalAll)}</span>
+      </div>
+    </div>
+  `;
 }
 
 // ==================== Init ====================
