@@ -1,11 +1,13 @@
 /**
- * Admin — Tea & Coffee Shop
- * ใช้ Firebase Realtime Database — sync ทุกเครื่องแบบ real-time
- * Login: Mixzaza / 121212
+ * Admin — ตามสั่ง at Laos
+ * เพิ่ม: จัดการโต๊ะ (เปิด/ปิด + ออก token สำหรับ QR)
+ * Login: Admin / 123456789
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, update, remove, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {
+  getDatabase, ref, update, remove, onValue, get, set
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAOkyKQA3GapMvPRwy4CsiKIb0kz6PvsUg",
@@ -23,51 +25,50 @@ const db = getDatabase(firebaseApp);
 // ==================== Config ====================
 const ADMIN_USER = 'Admin';
 const ADMIN_PASS = '123456789';
-const AUTH_KEY = 'pos2laos-admin-auth';
+const AUTH_KEY   = 'pos2laos-admin-auth';
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzCu36zqMJ-qsD0ZiKcxdfnnFOBrHFIprTrR3uaW4_EFzaSw3-hH8mQ0rhlIMkjNsXzSg/exec';
+const TOTAL_TABLES = 20;
 
 // ==================== DOM ====================
-const loginScreen = document.getElementById('loginScreen');
-const dashboardScreen = document.getElementById('dashboardScreen');
-const loginForm = document.getElementById('loginForm');
-const usernameInput = document.getElementById('username');
-const passwordInput = document.getElementById('password');
-const loginError = document.getElementById('loginError');
-const ordersList = document.getElementById('ordersList');
-const ordersEmpty = document.getElementById('ordersEmpty');
-const logoutBtn = document.getElementById('logoutBtn');
-const todayOrderCount = document.getElementById('todayOrderCount');
-const todayTotal = document.getElementById('todayTotal');
-const tabRecent = document.getElementById('tabRecent');
-const tabHistory = document.getElementById('tabHistory');
-const historyContent = document.getElementById('historyContent');
-const historyEmpty = document.getElementById('historyEmpty');
-const clearDataBtn = document.getElementById('clearDataBtn');
-const clearDataModal = document.getElementById('clearDataModal');
-const clearDataCode = document.getElementById('clearDataCode');
-const clearDataError = document.getElementById('clearDataError');
-const clearDataCancel = document.getElementById('clearDataCancel');
+const loginScreen      = document.getElementById('loginScreen');
+const dashboardScreen  = document.getElementById('dashboardScreen');
+const loginForm        = document.getElementById('loginForm');
+const usernameInput    = document.getElementById('username');
+const passwordInput    = document.getElementById('password');
+const loginError       = document.getElementById('loginError');
+const ordersList       = document.getElementById('ordersList');
+const ordersEmpty      = document.getElementById('ordersEmpty');
+const logoutBtn        = document.getElementById('logoutBtn');
+const todayOrderCount  = document.getElementById('todayOrderCount');
+const todayTotal       = document.getElementById('todayTotal');
+const tabRecent        = document.getElementById('tabRecent');
+const tabHistory       = document.getElementById('tabHistory');
+const tabTables        = document.getElementById('tabTables');
+const historyContent   = document.getElementById('historyContent');
+const historyEmpty     = document.getElementById('historyEmpty');
+const tabQr            = document.getElementById('tabQr');
+const clearDataBtn     = document.getElementById('clearDataBtn');
+const clearDataModal   = document.getElementById('clearDataModal');
+const clearDataCode    = document.getElementById('clearDataCode');
+const clearDataError   = document.getElementById('clearDataError');
+const clearDataCancel  = document.getElementById('clearDataCancel');
 const clearDataConfirm = document.getElementById('clearDataConfirm');
-const exportSheetBtn = document.getElementById('exportSheetBtn');
-const exportModal = document.getElementById('exportModal');
-const exportCancel = document.getElementById('exportCancel');
-const exportConfirm = document.getElementById('exportConfirm');
-const exportStatus = document.getElementById('exportStatus');
-const customDateRange = document.getElementById('customDateRange');
-const dateFrom = document.getElementById('dateFrom');
-const dateTo = document.getElementById('dateTo');
+const exportSheetBtn   = document.getElementById('exportSheetBtn');
+const exportModal      = document.getElementById('exportModal');
+const exportCancel     = document.getElementById('exportCancel');
+const exportConfirm    = document.getElementById('exportConfirm');
+const exportStatus     = document.getElementById('exportStatus');
+const customDateRange  = document.getElementById('customDateRange');
+const dateFrom         = document.getElementById('dateFrom');
+const dateTo           = document.getElementById('dateTo');
 
 // ==================== State ====================
 let allOrders = [];
+let tableStates = {}; // { 1: { status, token, openedAt }, ... }
 
 // ==================== Auth ====================
-function isLoggedIn() {
-  return sessionStorage.getItem(AUTH_KEY) === 'true';
-}
-
-function setLoggedIn(value) {
-  value ? sessionStorage.setItem(AUTH_KEY, 'true') : sessionStorage.removeItem(AUTH_KEY);
-}
+function isLoggedIn() { return sessionStorage.getItem(AUTH_KEY) === 'true'; }
+function setLoggedIn(v) { v ? sessionStorage.setItem(AUTH_KEY, 'true') : sessionStorage.removeItem(AUTH_KEY); }
 
 function showScreen(screen) {
   loginScreen.classList.add('hidden');
@@ -76,35 +77,27 @@ function showScreen(screen) {
 }
 
 // ==================== Helpers ====================
-function formatMoney(n) {
-  return '฿' + Number(n).toFixed(2);
+function formatMoney(n) { return '฿' + Number(n).toFixed(2); }
+function formatDate(s) {
+  return new Date(s).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+}
+function formatDateOnly(s) {
+  return new Date(s).toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+function getDateKey(s) { return new Date(s).toISOString().slice(0, 10); }
+function isToday(s)    { return getDateKey(s) === new Date().toISOString().slice(0, 10); }
+function isWithinLast30Days(s) {
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+  return new Date(s) >= cutoff;
 }
 
-function formatDate(isoString) {
-  return new Date(isoString).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+function generateToken() {
+  return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+  );
 }
 
-function formatDateOnly(isoString) {
-  return new Date(isoString).toLocaleDateString('th-TH', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  });
-}
-
-function getDateKey(isoString) {
-  return new Date(isoString).toISOString().slice(0, 10);
-}
-
-function isToday(isoString) {
-  return getDateKey(isoString) === new Date().toISOString().slice(0, 10);
-}
-
-function isWithinLast30Days(isoString) {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 30);
-  return new Date(isoString) >= cutoff;
-}
-
-// ==================== Firebase: Real-time Listener ====================
+// ==================== Firebase: Real-time ====================
 function startRealtimeListener() {
   onValue(ref(db, 'orders'), (snapshot) => {
     allOrders = [];
@@ -118,31 +111,57 @@ function startRealtimeListener() {
     renderOrders();
     renderHistory();
   });
+
+  onValue(ref(db, 'tables'), (snapshot) => {
+    tableStates = {};
+    if (snapshot.exists()) {
+      snapshot.forEach((child) => {
+        tableStates[parseInt(child.key)] = child.val();
+      });
+    }
+    renderTablesGrid();
+  });
 }
 
-// ==================== Firebase: Actions ====================
+// ==================== Firebase: Order Actions ====================
 async function markOrderAsPaid(firebaseKey) {
   await update(ref(db, `orders/${firebaseKey}`), { status: 'paid' });
 }
-
 async function deleteOrder(firebaseKey, orderNumber) {
   if (!confirm(`ลบออเดอร์ #${orderNumber} ?`)) return;
   await remove(ref(db, `orders/${firebaseKey}`));
 }
-
 async function clearAllOrders() {
   await remove(ref(db, 'orders'));
   await update(ref(db, 'meta'), { orderNumber: 1001, lastOrderDate: new Date().toISOString().slice(0, 10) });
   closeClearDataModal();
 }
 
-// ==================== Render ====================
+// ==================== Firebase: Table Actions ====================
+async function openTable(tableNum) {
+  const token = generateToken();
+  await set(ref(db, `tables/${tableNum}`), {
+    status: 'open',
+    token,
+    openedAt: new Date().toISOString(),
+  });
+}
+
+async function closeTable(tableNum) {
+  await update(ref(db, `tables/${tableNum}`), {
+    status: 'closed',
+    closedAt: new Date().toISOString(),
+  });
+}
+
+// ==================== Render: Summary ====================
 function renderDailySummary() {
   const paidToday = allOrders.filter((o) => o.status === 'paid' && isToday(o.date));
   todayOrderCount.textContent = paidToday.length;
-  todayTotal.textContent = formatMoney(paidToday.reduce((sum, o) => sum + o.total, 0));
+  todayTotal.textContent = formatMoney(paidToday.reduce((s, o) => s + o.total, 0));
 }
 
+// ==================== Render: Orders ====================
 function renderOrders() {
   if (allOrders.length === 0) {
     ordersList.innerHTML = '';
@@ -150,7 +169,6 @@ function renderOrders() {
     ordersEmpty.classList.remove('hidden');
     return;
   }
-
   ordersEmpty.classList.add('hidden');
   ordersList.classList.remove('hidden');
   ordersList.innerHTML = allOrders.map((order) => {
@@ -172,11 +190,9 @@ function renderOrders() {
         </div>
         <div class="order-card-body">
           <ul class="order-items">
-            ${(order.items || []).map((i) => `
-              <li class="order-item">
-                <span>${i.name}${i.temp ? `<br><small>${i.temp} · ${i.sweet}</small>` : ''} × ${i.qty}</span>
-                <span>${formatMoney(i.price * i.qty)}</span>
-              </li>`).join('')}
+            ${(order.items || []).map((i) =>
+              `<li class="order-item"><span>${i.name} × ${i.qty}</span><span>${formatMoney(i.price * i.qty)}</span></li>`
+            ).join('')}
           </ul>
           <div class="order-total-row">
             <span>รวมทั้งหมด</span>
@@ -194,16 +210,15 @@ function renderOrders() {
   });
 }
 
+// ==================== Render: History ====================
 function renderHistory() {
   const paidLast30 = allOrders.filter((o) => o.status === 'paid' && isWithinLast30Days(o.date));
-
   if (paidLast30.length === 0) {
     historyContent.innerHTML = '';
     historyContent.classList.add('hidden');
     historyEmpty.classList.remove('hidden');
     return;
   }
-
   historyEmpty.classList.add('hidden');
   historyContent.classList.remove('hidden');
 
@@ -237,14 +252,75 @@ function renderHistory() {
   }).join('');
 }
 
-// ==================== Tabs ====================
-const tabQr = document.getElementById('tabQr');
+// ==================== Render: Tables Grid ====================
+function renderTablesGrid() {
+  const grid = document.getElementById('tablesGrid');
+  if (!grid) return;
 
+  const baseUrl = (window.location.href.replace('admin.html', 'index.html').split('?')[0]);
+
+  grid.innerHTML = Array.from({ length: TOTAL_TABLES }, (_, i) => {
+    const n = i + 1;
+    const t = tableStates[n] || { status: 'closed' };
+    const isOpen = t.status === 'open';
+    const qrUrl  = isOpen ? `${baseUrl}?table=${n}&token=${t.token}` : '';
+    const openedAgo = isOpen && t.openedAt
+      ? `เปิดเมื่อ ${new Date(t.openedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`
+      : '';
+
+    return `
+      <div class="table-mgmt-card ${isOpen ? 'open' : 'closed'}">
+        <div class="table-mgmt-header">
+          <span class="table-mgmt-num">โต๊ะ ${n}</span>
+          <span class="table-mgmt-status ${isOpen ? 'open' : 'closed'}">${isOpen ? '🟢 เปิด' : '⭕ ปิด'}</span>
+        </div>
+        ${openedAgo ? `<p class="table-mgmt-time">${openedAgo}</p>` : ''}
+        <div class="table-mgmt-actions">
+          ${isOpen
+            ? `<button class="btn btn-sm btn-outline-danger" data-close="${n}">ปิดโต๊ะ</button>
+               <button class="btn btn-sm btn-outline" data-qr="${n}" data-url="${qrUrl}">📋 คัดลอก URL</button>`
+            : `<button class="btn btn-sm btn-green" data-open="${n}">เปิดโต๊ะ</button>`
+          }
+        </div>
+      </div>`;
+  }).join('');
+
+  grid.querySelectorAll('[data-open]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      await openTable(parseInt(btn.dataset.open));
+    });
+  });
+  grid.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const n = parseInt(btn.dataset.close);
+      if (!confirm(`ปิดโต๊ะ ${n}? ลูกค้าที่ยังสั่งอยู่จะไม่สามารถสั่งต่อได้`)) return;
+      btn.disabled = true;
+      await closeTable(n);
+    });
+  });
+  grid.querySelectorAll('[data-qr]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const url = btn.dataset.url;
+      if (!url) return;
+      navigator.clipboard.writeText(url).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✅ คัดลอกแล้ว!';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+      });
+    });
+  });
+}
+
+// ==================== Tabs ====================
 function switchTab(tabId) {
-  document.querySelectorAll('.tab-btn').forEach((t) => t.classList.toggle('active', t.dataset.tab === tabId));
-  tabRecent.classList.toggle('hidden', tabId !== 'recent');
-  tabHistory.classList.toggle('hidden', tabId !== 'history');
-  tabQr.classList.toggle('hidden', tabId !== 'qr');
+  document.querySelectorAll('.tab-btn').forEach((t) =>
+    t.classList.toggle('active', t.dataset.tab === tabId)
+  );
+  tabRecent.classList.toggle('hidden',   tabId !== 'recent');
+  tabHistory.classList.toggle('hidden',  tabId !== 'history');
+  tabTables.classList.toggle('hidden',   tabId !== 'tables');
+  tabQr.classList.toggle('hidden',       tabId !== 'qr');
   if (tabId === 'qr') initQrTab();
 }
 
@@ -294,7 +370,6 @@ function openClearDataModal() {
   clearDataModal.setAttribute('aria-hidden', 'false');
   clearDataCode.focus();
 }
-
 function closeClearDataModal() {
   clearDataModal.setAttribute('aria-hidden', 'true');
   clearDataCode.value = '';
@@ -319,7 +394,7 @@ clearDataConfirm.addEventListener('click', async () => {
 function initDatePicker() {
   const today = new Date().toISOString().slice(0, 10);
   dateFrom.value = today;
-  dateTo.value = today;
+  dateTo.value   = today;
 }
 
 document.querySelectorAll('input[name="exportRange"]').forEach(radio => {
@@ -330,37 +405,31 @@ document.querySelectorAll('input[name="exportRange"]').forEach(radio => {
 
 function openExportModal() {
   exportStatus.textContent = '';
-  exportStatus.className = 'export-status';
-  exportConfirm.disabled = false;
+  exportStatus.className   = 'export-status';
+  exportConfirm.disabled   = false;
   exportConfirm.textContent = '📤 ส่งข้อมูล';
   document.querySelector('input[name="exportRange"][value="today"]').checked = true;
   customDateRange.classList.add('hidden');
   initDatePicker();
   exportModal.setAttribute('aria-hidden', 'false');
 }
-
 function closeExportModal() {
   exportModal.setAttribute('aria-hidden', 'true');
   exportStatus.textContent = '';
 }
 
-function isInDateRange(isoString, from, to) {
-  const key = getDateKey(isoString);
-  return key >= from && key <= to;
+function isInDateRange(s, from, to) {
+  const key = getDateKey(s); return key >= from && key <= to;
 }
-
 function getFilteredOrders(range) {
-  if (range === 'today') return allOrders.filter(o => isToday(o.date));
-  if (range === 'month') return allOrders.filter(o => isWithinLast30Days(o.date));
+  if (range === 'today')  return allOrders.filter(o => isToday(o.date));
+  if (range === 'month')  return allOrders.filter(o => isWithinLast30Days(o.date));
   if (range === 'custom') {
-    const from = dateFrom.value;
-    const to = dateTo.value;
-    if (!from || !to) return [];
-    return allOrders.filter(o => isInDateRange(o.date, from, to));
+    if (!dateFrom.value || !dateTo.value) return [];
+    return allOrders.filter(o => isInDateRange(o.date, dateFrom.value, dateTo.value));
   }
   return allOrders;
 }
-
 function buildSummary(orders) {
   const byDay = {};
   orders.filter(o => o.status === 'paid').forEach(o => {
@@ -381,52 +450,45 @@ exportConfirm.addEventListener('click', async () => {
   if (range === 'custom') {
     if (!dateFrom.value || !dateTo.value) {
       exportStatus.textContent = '⚠️ กรุณาเลือกวันที่ให้ครบ';
-      exportStatus.className = 'export-status error';
-      return;
+      exportStatus.className   = 'export-status error'; return;
     }
     if (dateFrom.value > dateTo.value) {
       exportStatus.textContent = '⚠️ วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด';
-      exportStatus.className = 'export-status error';
-      return;
+      exportStatus.className   = 'export-status error'; return;
     }
   }
-
   const orders = getFilteredOrders(range);
   if (orders.length === 0) {
     exportStatus.textContent = '⚠️ ไม่มีข้อมูลในช่วงที่เลือก';
-    exportStatus.className = 'export-status error';
-    return;
+    exportStatus.className   = 'export-status error'; return;
   }
-
-  exportConfirm.disabled = true;
+  exportConfirm.disabled    = true;
   exportConfirm.textContent = 'กำลังส่ง...';
-  exportStatus.textContent = '';
-  exportStatus.className = 'export-status';
+  exportStatus.textContent  = '';
+  exportStatus.className    = 'export-status';
 
   try {
-    const res = await fetch(GOOGLE_SCRIPT_URL, {
+    const res    = await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ orders, summary: buildSummary(orders) })
     });
     const result = await res.json();
     if (result.success) {
-      exportStatus.textContent = `✅ ส่งสำเร็จ! ${result.inserted} ออเดอร์ (ข้ามซ้ำ ${result.skipped} รายการ)`;
-      exportStatus.className = 'export-status success';
+      exportStatus.textContent  = `✅ ส่งสำเร็จ! ${result.inserted} ออเดอร์ (ข้ามซ้ำ ${result.skipped} รายการ)`;
+      exportStatus.className    = 'export-status success';
       exportConfirm.textContent = '✅ สำเร็จ';
-    } else {
-      throw new Error(result.error || 'Unknown error');
-    }
+    } else { throw new Error(result.error || 'Unknown error'); }
   } catch (err) {
-    exportStatus.textContent = '❌ เกิดข้อผิดพลาด: ' + err.message;
-    exportStatus.className = 'export-status error';
-    exportConfirm.disabled = false;
+    exportStatus.textContent  = '❌ เกิดข้อผิดพลาด: ' + err.message;
+    exportStatus.className    = 'export-status error';
+    exportConfirm.disabled    = false;
     exportConfirm.textContent = '📤 ส่งข้อมูล';
   }
 });
 
 // ==================== QR Code Tab ====================
-let qrInstance = null;
+let qrInstance    = null;
 let qrInitialized = false;
 
 function initQrTab() {
@@ -434,17 +496,14 @@ function initQrTab() {
   qrInitialized = true;
 
   const baseUrlInput = document.getElementById('qrBaseUrl');
-  const tableSelect = document.getElementById('qrTableSelect');
+  const tableSelect  = document.getElementById('qrTableSelect');
 
-  // ตั้ง base URL อัตโนมัติจาก current location
   const autoBase = window.location.href.replace('admin.html', 'index.html').split('?')[0];
   baseUrlInput.value = autoBase;
 
-  // เติมตัวเลือกโต๊ะ 1-20
-  for (let i = 1; i <= 20; i++) {
+  for (let i = 1; i <= TOTAL_TABLES; i++) {
     const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = `โต๊ะ ${i}`;
+    opt.value = i; opt.textContent = `โต๊ะ ${i}`;
     tableSelect.appendChild(opt);
   }
 
@@ -457,52 +516,58 @@ function initQrTab() {
   generateQr();
 }
 
-function getQrUrl() {
-  const base = (document.getElementById('qrBaseUrl').value || '').trim();
-  const table = document.getElementById('qrTableSelect').value;
+async function getQrUrl() {
+  const base  = (document.getElementById('qrBaseUrl').value || '').trim();
+  const table = parseInt(document.getElementById('qrTableSelect').value);
   if (!base) return '';
+  const t = tableStates[table];
+  if (!t || t.status !== 'open') {
+    // QR ไม่มี token — แสดง warning
+    return null;
+  }
   const url = new URL(base);
   url.searchParams.set('table', table);
+  url.searchParams.set('token', t.token);
   return url.toString();
 }
 
-function generateQr() {
-  const url = getQrUrl();
+async function generateQr() {
   const canvasWrap = document.getElementById('qrCanvas');
-  const table = document.getElementById('qrTableSelect').value;
+  const table      = document.getElementById('qrTableSelect').value;
+  const url        = await getQrUrl();
 
   document.getElementById('qrTableLabel').textContent = `โต๊ะ ${table}`;
-  document.getElementById('qrUrlText').textContent = url || '— กรุณากรอก URL —';
 
+  if (url === null) {
+    document.getElementById('qrUrlText').textContent = '⚠️ โต๊ะนี้ยังไม่ได้เปิด — ไปที่แท็บ "โต๊ะ" เพื่อเปิดก่อน';
+    canvasWrap.innerHTML = '<p class="qr-closed-msg">🔒 เปิดโต๊ะก่อนสร้าง QR</p>';
+    return;
+  }
+
+  document.getElementById('qrUrlText').textContent = url || '— กรุณากรอก URL —';
   canvasWrap.innerHTML = '';
   if (!url) return;
 
   qrInstance = new QRCode(canvasWrap, {
-    text: url,
-    width: 200,
-    height: 200,
-    colorDark: '#3d2b1f',
-    colorLight: '#ffffff',
+    text: url, width: 200, height: 200,
+    colorDark: '#3d2b1f', colorLight: '#ffffff',
     correctLevel: QRCode.CorrectLevel.H,
   });
 }
 
-function downloadQr() {
+async function downloadQr() {
   const table = document.getElementById('qrTableSelect').value;
-  const img = document.querySelector('#qrCanvas img');
+  const img   = document.querySelector('#qrCanvas img');
   const canvas = document.querySelector('#qrCanvas canvas');
-  const src = img ? img.src : (canvas ? canvas.toDataURL() : null);
+  const src   = img ? img.src : (canvas ? canvas.toDataURL() : null);
   if (!src) { alert('กรุณา generate QR ก่อน'); return; }
-
   const a = document.createElement('a');
-  a.href = src;
-  a.download = `qr-table-${table}.png`;
-  a.click();
+  a.href = src; a.download = `qr-table-${table}.png`; a.click();
 }
 
-function copyQrLink() {
-  const url = getQrUrl();
-  if (!url) { alert('กรุณากรอก URL ก่อน'); return; }
+async function copyQrLink() {
+  const url = await getQrUrl();
+  if (!url) { alert('โต๊ะนี้ยังไม่ได้เปิด กรุณาเปิดโต๊ะก่อน'); return; }
   navigator.clipboard.writeText(url).then(() => {
     const btn = document.getElementById('qrCopyLinkBtn');
     const orig = btn.textContent;
