@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>แอดมิน — ร้านตามสั่ง</title>
+  <title>แอดมิน — ตามสั่ง at Laos</title>
   <link rel="stylesheet" href="admin.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,7 +39,6 @@
   <!-- =============== DASHBOARD =============== -->
   <div id="dashboardScreen" class="screen hidden">
 
-    <!-- Header -->
     <header class="admin-header">
       <div class="admin-header-left">
         <h1 class="admin-logo">🍚 แอดมิน</h1>
@@ -77,7 +76,8 @@
       <nav class="tab-nav">
         <button class="tab-btn active" data-tab="recent">รายการล่าสุด</button>
         <button class="tab-btn" data-tab="history">ย้อนหลัง 1 เดือน</button>
-        <button class="tab-btn" data-tab="qr">📱 QR โต๊ะ</button>
+        <button class="tab-btn" data-tab="tables">🪑 โต๊ะ</button>
+        <button class="tab-btn" data-tab="qr">📱 QR Code</button>
       </nav>
 
       <!-- Tab: Recent -->
@@ -99,6 +99,17 @@
         </div>
       </div>
 
+      <!-- Tab: Tables Management -->
+      <div id="tabTables" class="tab-panel hidden">
+        <div class="tables-mgmt-header">
+          <h3 class="tables-mgmt-title">จัดการโต๊ะ</h3>
+          <p class="tables-mgmt-desc">กด <strong>เปิดโต๊ะ</strong> เมื่อลูกค้าเข้านั่ง → ระบบออก session token ให้ QR Code ของโต๊ะนั้น<br>ลูกค้าที่สแกน QR จะสั่งได้เฉพาะโต๊ะที่เปิดแล้วเท่านั้น</p>
+        </div>
+        <div class="tables-grid" id="tablesGrid">
+          <!-- filled by JS -->
+        </div>
+      </div>
+
       <!-- Tab: QR Code -->
       <div id="tabQr" class="tab-panel hidden">
         <div class="qr-section">
@@ -114,6 +125,7 @@
               </select>
             </div>
           </div>
+          <p class="qr-note">⚠️ QR Code จะมี session token เฉพาะสำหรับโต๊ะที่เปิดแล้วเท่านั้น</p>
           <div class="qr-preview-wrap">
             <div class="qr-preview-card">
               <p class="qr-preview-label">ตามสั่ง at Laos</p>
