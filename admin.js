@@ -555,32 +555,14 @@ async function generateQr() {
   });
 }
 
-// --- ส่วนที่แก้ไขใน admin.js ---
-
 async function downloadQr() {
   const table = document.getElementById('qrTableSelect').value;
-  // ดึงภาพจากทั้ง img หรือ canvas (เพราะ qrcode.js ผลิตออกมาต่างกันในแต่ละ Browser)
-  const img = document.querySelector('#qrCanvas img');
+  const img   = document.querySelector('#qrCanvas img');
   const canvas = document.querySelector('#qrCanvas canvas');
-  
-  let src = null;
-  if (img && img.src && img.src.startsWith('data:image')) {
-    src = img.src;
-  } else if (canvas) {
-    src = canvas.toDataURL("image/png");
-  }
-
-  if (!src) { 
-    alert('กรุณารอให้ QR Code สร้างเสร็จก่อน หรือลองกด Generate ใหม่อีกครั้ง'); 
-    return; 
-  }
-
+  const src   = img ? img.src : (canvas ? canvas.toDataURL() : null);
+  if (!src) { alert('กรุณา generate QR ก่อน'); return; }
   const a = document.createElement('a');
-  a.href = src;
-  a.download = `qr-table-${table}.png`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = src; a.download = `qr-table-${table}.png`; a.click();
 }
 
 async function copyQrLink() {
