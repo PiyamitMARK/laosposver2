@@ -12,17 +12,28 @@
 <body>
   <div class="app">
 
+    <!-- Blocked Screen (QR token invalid / table closed) -->
+    <div id="blockedScreen" class="blocked-screen hidden">
+      <div class="blocked-card">
+        <div class="blocked-icon">🔒</div>
+        <h2 class="blocked-title">ไม่สามารถสั่งได้</h2>
+        <p class="blocked-reason" id="blockedReason">กรุณาติดต่อพนักงาน</p>
+        <p class="blocked-sub">กรุณาแสกน QR Code ที่โต๊ะของคุณ</p>
+      </div>
+    </div>
+
     <!-- Header -->
     <header class="header">
       <div class="header-left">
-        <h1 class="logo">🍚 ตามสั่ง</h1>
+        <!-- แตะโลโก้ 5 ครั้งเร็วๆ เพื่อเข้าหน้า admin (Easter egg) -->
+        <h1 class="logo" title="">🍚 ตามสั่ง</h1>
       </div>
       <div class="header-right">
         <div class="header-info">
           <span id="currentDate" class="date-text"></span>
           <span class="order-chip">ออเดอร์ #<span id="orderNumber">1001</span><span id="tableChip"></span></span>
         </div>
-        <a href="admin.html" class="admin-btn" title="แอดมิน">⚙️</a>
+        <!-- ไม่มีปุ่ม Admin ให้เห็น — ใช้ Easter egg บน logo แทน -->
       </div>
     </header>
 
@@ -31,7 +42,7 @@
       <!-- Left: Products -->
       <section class="products-section">
 
-        <!-- Table selector -->
+        <!-- Table selector (ซ่อนเมื่อ QR mode) -->
         <div class="table-bar">
           <span class="table-bar-label">🪑 เลือกโต๊ะ</span>
           <div class="table-grid">
@@ -125,7 +136,7 @@
       <div class="modal-content receipt-modal-content">
         <div class="receipt" id="receiptContent">
           <div class="receipt-header">
-            <p class="receipt-shop">☕ ร้านชากาแฟ</p>
+            <p class="receipt-shop">🍚 ตามสั่ง at Laos</p>
             <p class="receipt-order">ออเดอร์ #<span id="receiptOrderNum"></span></p>
             <p class="receipt-table" id="receiptTable"></p>
             <p class="receipt-date" id="receiptDate"></p>
@@ -141,7 +152,7 @@
         </div>
         <div class="modal-actions no-print">
           <button type="button" class="btn btn-ghost" id="printReceipt">🖨 พิมพ์</button>
-          <button type="button" class="btn btn-primary" id="newOrder">ออเดอร์ใหม่</button>
+          <button type="button" class="btn btn-primary" id="newOrder">✓ สั่งอีกครั้ง</button>
         </div>
       </div>
     </div>
