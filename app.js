@@ -305,6 +305,14 @@ function renderCart() {
     badge.style.display = totalQty > 0 ? 'inline-flex' : 'none';
   }
   totalEl.textContent = formatMoney(cart.reduce((sum, i) => sum + i.price * i.qty, 0));
+
+  const historyDiv = document.createElement('div');
+  historyDiv.className = 'cart-history-section';
+  historyDiv.innerHTML = `<h3 class="history-title">รายการที่สั่งแล้ว</h3>`;
+  
+  // ดึงข้อมูลรายการที่เคยสั่งของโต๊ะนี้มาแสดง (Logic เดิมที่มีอยู่แล้วในระบบ)
+  renderTableHistoryInCart(historyDiv); 
+  cartItemsEl.appendChild(historyDiv);
 }
 
 function clearCart() {
