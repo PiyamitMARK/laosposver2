@@ -139,11 +139,11 @@ async function clearAllOrders() {
 
 // ==================== Firebase: Table Actions ====================
 async function openTable(tableNum) {
-  const tableRef = ref(db, `tables/${tableNum}`);
-  await update(tableRef, {
+  const token = generateToken();
+  await set(ref(db, `tables/${tableNum}`), {
     status: 'open',
-    // ไม่ต้องมี token หรือใช้ token เป็นค่าคงที่ เช่น 'permanent'
-    token: 'active' 
+    token,
+    openedAt: new Date().toISOString(),
   });
 }
 
@@ -519,16 +519,15 @@ function initQrTab() {
 async function getQrUrl() {
   const base  = (document.getElementById('qrBaseUrl').value || '').trim();
   const table = parseInt(document.getElementById('qrTableSelect').value);
-  
   if (!base) return '';
-
-  // สร้าง URL ใหม่โดยใส่แค่เลขโต๊ะ (table)
+  const t = tableStates[table];
+  if (!t || t.status !== 'open') {
+    // QR ไม่มี token — แสดง warning
+    return null;
+  }
   const url = new URL(base);
   url.searchParams.set('table', table);
-  
-  // ตัดบรรทัด url.searchParams.set('token', t.token); ออกไปเลย
-  // เพื่อให้ Link คงที่ตลอดกาลสำหรับโต๊ะนั้นๆ
-  
+  url.searchParams.set('token', t.token);
   return url.toString();
 }
 
