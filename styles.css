@@ -702,3 +702,226 @@ body {
   }
   .no-print, .modal-actions { display: none !important; }
 }
+
+/* ================================================ TABLE ORDER HISTORY PANEL */
+.table-history-panel {
+  flex: 1;
+  overflow-y: auto;
+  animation: fadeUp 0.22s ease both;
+}
+
+.table-history-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-bottom: 1rem;
+}
+
+/* Topbar stats */
+.table-history-topbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.table-history-stat {
+  background: var(--white);
+  border: 1.5px solid var(--cream-dark);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  box-shadow: var(--shadow-sm);
+}
+.table-history-stat.accent {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+  border-color: var(--accent);
+  color: var(--white);
+}
+.table-history-stat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--brown-light);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.table-history-stat.accent .table-history-stat-label { color: rgba(255,255,255,0.8); }
+.table-history-stat-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--brown);
+}
+.table-history-stat.accent .table-history-stat-value { color: var(--white); }
+
+/* Pending notice */
+.table-history-pending-notice {
+  background: #fff8e6;
+  border: 1.5px solid #f5c842;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #7a5a00;
+}
+
+/* Order cards */
+.table-history-orders {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.table-history-card {
+  background: var(--white);
+  border: 1.5px solid var(--cream-dark);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  animation: cardIn 0.2s ease both;
+}
+.table-history-card.pending { border-left: 4px solid var(--accent); }
+.table-history-card.paid    { border-left: 4px solid var(--sage); }
+
+.table-history-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.85rem 0.5rem;
+  background: var(--cream-mid);
+  border-bottom: 1px solid var(--cream-dark);
+}
+
+.table-history-card-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.table-history-card-num {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--brown);
+}
+
+.table-history-card-time {
+  font-size: 0.78rem;
+  color: var(--brown-light);
+  background: var(--white);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--cream-dark);
+}
+
+.table-history-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-pill);
+}
+.table-history-badge.pending {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+}
+.table-history-badge.paid {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #28a745;
+}
+
+.table-history-card-items {
+  list-style: none;
+  padding: 0.5rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.table-history-card-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  color: var(--brown-mid);
+  padding: 0.2rem 0;
+  border-bottom: 1px dashed var(--cream-dark);
+}
+.table-history-card-item:last-child { border-bottom: none; }
+
+.thci-name { flex: 1; font-weight: 500; }
+.thci-qty {
+  font-weight: 700;
+  color: var(--brown-light);
+  min-width: 30px;
+  text-align: center;
+}
+.thci-price {
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 60px;
+  text-align: right;
+}
+
+.table-history-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.85rem 0.65rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--brown-light);
+  border-top: 1px solid var(--cream-dark);
+  background: var(--cream);
+}
+
+.table-history-card-total {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--brown);
+}
+
+/* Grand total */
+.table-history-grand {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(135deg, var(--brown) 0%, var(--brown-mid) 100%);
+  border-radius: var(--radius);
+  color: var(--white);
+  font-weight: 700;
+  box-shadow: var(--shadow-md);
+}
+.table-history-grand-label { font-size: 0.9rem; opacity: 0.85; }
+.table-history-grand-value { font-size: 1.25rem; }
+
+/* Empty state */
+.table-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1rem;
+  color: var(--brown-light);
+  font-size: 0.95rem;
+  text-align: center;
+}
+.table-history-empty-icon { font-size: 2.5rem; opacity: 0.4; }
+.table-history-empty-sub  { font-size: 0.82rem; opacity: 0.7; margin-top: 0.25rem; }
+
+/* Loading */
+.table-history-loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--brown-light);
+  font-size: 0.9rem;
+}
+
+/* Admin tabs also need to reset/re-wire */
+@media (max-width: 900px) {
+  .table-history-topbar { grid-template-columns: 1fr 1fr; }
+  .table-history-topbar .table-history-stat:nth-child(3) {
+    grid-column: span 2;
+  }
+}
