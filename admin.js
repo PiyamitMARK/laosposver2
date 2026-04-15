@@ -139,7 +139,10 @@ async function clearAllOrders() {
 
 // ==================== Firebase: Table Actions ====================
 async function openTable(tableNum) {
-  const token = generateToken();
+  // ดึง token เดิมถ้ามี — ถ้าไม่มีค่อยออกใหม่
+  const snap = await get(ref(db, `tables/${tableNum}`));
+  const existing = snap.exists() ? snap.val() : {};
+  const token = existing.token || generateToken(); // ใช้ token เดิมถ้ามี
   await set(ref(db, `tables/${tableNum}`), {
     status: 'open',
     token,
