@@ -77,6 +77,7 @@
       <nav class="tab-nav">
         <button class="tab-btn active" data-tab="recent">รายการล่าสุด</button>
         <button class="tab-btn" data-tab="history">ย้อนหลัง 1 เดือน</button>
+        <button class="tab-btn" data-tab="qr">📱 QR โต๊ะ</button>
       </nav>
 
       <!-- Tab: Recent -->
@@ -95,6 +96,36 @@
         <div id="historyEmpty" class="empty-state hidden">
           <p class="empty-icon">📅</p>
           <p>ไม่มีข้อมูลย้อนหลัง</p>
+        </div>
+      </div>
+
+      <!-- Tab: QR Code -->
+      <div id="tabQr" class="tab-panel hidden">
+        <div class="qr-section">
+          <div class="qr-controls">
+            <div class="field" style="flex:1">
+              <label class="field-label" for="qrBaseUrl">Base URL ของเว็บ</label>
+              <input type="url" id="qrBaseUrl" class="field-input" placeholder="https://yoursite.com/index.html">
+            </div>
+            <div class="field" style="width:130px">
+              <label class="field-label" for="qrTableSelect">เลือกโต๊ะ</label>
+              <select id="qrTableSelect" class="field-input">
+                <!-- filled by JS -->
+              </select>
+            </div>
+          </div>
+          <div class="qr-preview-wrap">
+            <div class="qr-preview-card">
+              <p class="qr-preview-label">ตามสั่ง at Laos</p>
+              <div id="qrCanvas" class="qr-canvas-wrap"></div>
+              <p class="qr-table-label" id="qrTableLabel">โต๊ะ 1</p>
+              <p class="qr-url-text" id="qrUrlText"></p>
+            </div>
+            <div class="qr-actions">
+              <button type="button" class="btn btn-primary" id="qrDownloadBtn">⬇ ดาวน์โหลด PNG</button>
+              <button type="button" class="btn btn-outline" id="qrCopyLinkBtn">🔗 คัดลอก URL</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -159,5 +190,6 @@
 
 </div>
 <script type="module" src="admin.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </body>
 </html>
