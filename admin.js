@@ -238,10 +238,14 @@ function renderHistory() {
 }
 
 // ==================== Tabs ====================
+const tabQr = document.getElementById('tabQr');
+
 function switchTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach((t) => t.classList.toggle('active', t.dataset.tab === tabId));
   tabRecent.classList.toggle('hidden', tabId !== 'recent');
   tabHistory.classList.toggle('hidden', tabId !== 'history');
+  tabQr.classList.toggle('hidden', tabId !== 'qr');
+  if (tabId === 'qr') initQrTab();
 }
 
 // ==================== Auth Events ====================
@@ -420,6 +424,92 @@ exportConfirm.addEventListener('click', async () => {
     exportConfirm.textContent = '📤 ส่งข้อมูล';
   }
 });
+
+// ==================== QR Code Tab ====================
+let qrInstance = null;
+let qrInitialized = false;
+
+function initQrTab() {
+  if (qrInitialized) { generateQr(); return; }
+  qrInitialized = true;
+
+  const baseUrlInput = document.getElementById('qrBaseUrl');
+  const tableSelect = document.getElementById('qrTableSelect');
+
+  // ตั้ง base URL อัตโนมัติจาก current location
+  const autoBase = window.location.href.replace('admin.html', 'index.html').split('?')[0];
+  baseUrlInput.value = autoBase;
+
+  // เติมตัวเลือกโต๊ะ 1-20
+  for (let i = 1; i <= 20; i++) {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `โต๊ะ ${i}`;
+    tableSelect.appendChild(opt);
+  }
+
+  baseUrlInput.addEventListener('input', generateQr);
+  tableSelect.addEventListener('change', generateQr);
+
+  document.getElementById('qrDownloadBtn').addEventListener('click', downloadQr);
+  document.getElementById('qrCopyLinkBtn').addEventListener('click', copyQrLink);
+
+  generateQr();
+}
+
+function getQrUrl() {
+  const base = (document.getElementById('qrBaseUrl').value || '').trim();
+  const table = document.getElementById('qrTableSelect').value;
+  if (!base) return '';
+  const url = new URL(base);
+  url.searchParams.set('table', table);
+  return url.toString();
+}
+
+function generateQr() {
+  const url = getQrUrl();
+  const canvasWrap = document.getElementById('qrCanvas');
+  const table = document.getElementById('qrTableSelect').value;
+
+  document.getElementById('qrTableLabel').textContent = `โต๊ะ ${table}`;
+  document.getElementById('qrUrlText').textContent = url || '— กรุณากรอก URL —';
+
+  canvasWrap.innerHTML = '';
+  if (!url) return;
+
+  qrInstance = new QRCode(canvasWrap, {
+    text: url,
+    width: 200,
+    height: 200,
+    colorDark: '#3d2b1f',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H,
+  });
+}
+
+function downloadQr() {
+  const table = document.getElementById('qrTableSelect').value;
+  const img = document.querySelector('#qrCanvas img');
+  const canvas = document.querySelector('#qrCanvas canvas');
+  const src = img ? img.src : (canvas ? canvas.toDataURL() : null);
+  if (!src) { alert('กรุณา generate QR ก่อน'); return; }
+
+  const a = document.createElement('a');
+  a.href = src;
+  a.download = `qr-table-${table}.png`;
+  a.click();
+}
+
+function copyQrLink() {
+  const url = getQrUrl();
+  if (!url) { alert('กรุณากรอก URL ก่อน'); return; }
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('qrCopyLinkBtn');
+    const orig = btn.textContent;
+    btn.textContent = '✅ คัดลอกแล้ว!';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  });
+}
 
 // ==================== Init ====================
 checkAuth();
