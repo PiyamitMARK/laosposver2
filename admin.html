@@ -76,9 +76,61 @@
       <nav class="tab-nav">
         <button class="tab-btn active" data-tab="recent">รายการล่าสุด</button>
         <button class="tab-btn" data-tab="history">ย้อนหลัง 1 เดือน</button>
+        <button class="tab-btn" data-tab="tableRevenue">📊 ยอดรายโต๊ะ</button>
         <button class="tab-btn" data-tab="tables">🪑 โต๊ะ</button>
         <button class="tab-btn" data-tab="qr">📱 QR Code</button>
       </nav>
+
+      <!-- Tab: Table Revenue -->
+      <div id="tabTableRevenue" class="tab-panel hidden">
+        <div class="table-revenue-controls">
+          <div class="field" style="width:180px">
+            <label class="field-label" for="revenueTableSelect">เลือกโต๊ะ</label>
+            <select id="revenueTableSelect" class="field-input">
+              <option value="all">ทุกโต๊ะ (รวม)</option>
+              <option value="1">โต๊ะ 1</option>
+              <option value="2">โต๊ะ 2</option>
+              <option value="3">โต๊ะ 3</option>
+              <option value="4">โต๊ะ 4</option>
+              <option value="5">โต๊ะ 5</option>
+              <option value="6">โต๊ะ 6</option>
+              <option value="7">โต๊ะ 7</option>
+              <option value="8">โต๊ะ 8</option>
+              <option value="9">โต๊ะ 9</option>
+              <option value="10">โต๊ะ 10</option>
+              <option value="11">โต๊ะ 11</option>
+              <option value="12">โต๊ะ 12</option>
+              <option value="13">โต๊ะ 13</option>
+              <option value="14">โต๊ะ 14</option>
+              <option value="15">โต๊ะ 15</option>
+              <option value="16">โต๊ะ 16</option>
+              <option value="17">โต๊ะ 17</option>
+              <option value="18">โต๊ะ 18</option>
+              <option value="19">โต๊ะ 19</option>
+              <option value="20">โต๊ะ 20</option>
+            </select>
+          </div>
+          <div class="field" style="width:160px">
+            <label class="field-label" for="revenuePeriodSelect">ช่วงเวลา</label>
+            <select id="revenuePeriodSelect" class="field-input">
+              <option value="today">วันนี้</option>
+              <option value="month" selected>30 วันล่าสุด</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Summary cards for selected table -->
+        <div class="table-revenue-summary" id="tableRevenueSummary">
+          <!-- filled by JS -->
+        </div>
+
+        <!-- Daily breakdown -->
+        <div id="tableRevenueContent" class="history-list"></div>
+        <div id="tableRevenueEmpty" class="empty-state hidden">
+          <p class="empty-icon">📊</p>
+          <p>ไม่มีข้อมูลในช่วงที่เลือก</p>
+        </div>
+      </div>
 
       <!-- Tab: Recent -->
       <div id="tabRecent" class="tab-panel">
