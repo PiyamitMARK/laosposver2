@@ -823,11 +823,18 @@ function renderPreviousOrdersInModal(orders) {
                   </li>`
                 ).join('')}
               </ul>
-              <div class="prev-modal-card-total" style="border-top: none; padding-top: 0;">
-                <span style="font-weight: bold;">รวม</span>
-                <span style="font-weight: bold;">${formatMoney(order.total)}</span>
               </div>
-            </div>`;
+              
+              <div style="
+                display: flex;
+                justify-content: flex-end;
+                font-weight: bold;
+                font-size: 16px;
+                margin-top: 10px;
+              ">
+                รวมทั้งหมด ${formatMoney(totalAll)}
+              </div>
+              `;
         }).join('')}
   `;
 }
