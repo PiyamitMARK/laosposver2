@@ -1054,19 +1054,6 @@ body {
   gap: 0.75rem;
   scrollbar-width: thin;
   scrollbar-color: var(--cream-dark) transparent;
-   max-height: 400px;    /* กำหนดความสูงสูงสุด (ปรับตัวเลขได้ตามชอบ) */
-    overflow-y: auto;     /* ถ้าเนื้อหายาวเกิน 400px ให้ขึ้น Scrollbar แนวตั้ง */
-    padding-right: 8px;   /* เพิ่มพื้นที่ด้านขวาเผื่อให้ Scrollbar ไม่ทับตัวหนังสือ */
-}
-
-/* ปรับแต่ง Scrollbar ให้ดูสวยงาม (สำหรับ Chrome/Safari) */
-.prev-modal-body::-webkit-scrollbar {
-    width: 6px;
-}
-
-.prev-modal-body::-webkit-scrollbar-thumb {
-    background-color: #d1d1d1;
-    border-radius: 10px;
 }
 .prev-modal-empty {
   display: flex;
@@ -1185,20 +1172,62 @@ body {
   padding: 0.1rem 0.5rem;
   min-width: 0;
 }
-.prev-modal-grand-total {
+
+/* ================================================
+   PREVIOUS ORDERS MODAL — v2 (simple merged list)
+   ================================================ */
+
+/* ให้ modal content มี max-height + scroll */
+.prev-orders-modal-content {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.prev-orders-modal-header {
+  flex-shrink: 0;
+}
+.prev-orders-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.25rem 0 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cream-dark) transparent;
+}
+.modal-actions.no-print { flex-shrink: 0; }
+
+/* รายการ */
+.prev-modal-items-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0 0 0.5rem;
+}
+.prev-modal-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0 0.75rem;
+  align-items: center;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--cream-mid);
+  font-size: 0.95rem;
+}
+.prev-modal-item:last-child { border-bottom: none; }
+.prev-modal-item-name  { color: var(--brown); font-weight: 500; }
+.prev-modal-item-qty   { color: var(--brown-light); font-size: 0.88rem; white-space: nowrap; }
+.prev-modal-item-price { font-weight: 600; color: var(--brown); white-space: nowrap; text-align: right; }
+
+/* ยอดรวมท้าย */
+.prev-modal-grand {
   display: flex;
   justify-content: space-between;
   align-items: center;
-
-  margin-top: 10px;
-  padding: 0.75rem 0.9rem;
-
-  background: linear-gradient(135deg, var(--brown) 0%, var(--brown-mid) 100%);
-  color: var(--white);
-
-  border-radius: var(--radius-sm);
-  font-size: 0.95rem;
+  padding: 0.75rem 0 0;
+  border-top: 2px solid var(--brown);
+  font-size: 1rem;
   font-weight: 700;
-
-  box-shadow: var(--shadow-sm);
+  color: var(--brown);
+  margin-top: 0.25rem;
 }
