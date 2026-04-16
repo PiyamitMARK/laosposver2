@@ -33,7 +33,14 @@
           <span id="currentDate" class="date-text"></span>
           <span class="order-chip">ออเดอร์ #<span id="orderNumber">1001</span><span id="tableChip"></span></span>
         </div>
-        <!-- ไม่มีปุ่ม Admin ให้เห็น — ใช้ Easter egg บน logo แทน -->
+        <!-- ปุ่ม "ที่สั่งแล้ว" — QR mode only, ซ่อนตอนแรก -->
+        <div id="previousOrdersBar" class="prev-orders-fab hidden">
+          <button type="button" id="prevOrdersBtn" class="prev-orders-fab-btn" aria-label="ดูรายการที่สั่งแล้ว">
+            <span class="prev-orders-fab-icon">📋</span>
+            <span>ที่สั่งแล้ว</span>
+            <span class="prev-orders-fab-chip" id="prevOrdersTotalChip">฿0.00</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -94,14 +101,6 @@
           <div class="cart-title-row">
             <h2 class="cart-title">รายการสั่งซื้อ <span class="cart-badge" id="cartBadge" style="display:none">0</span></h2>
           </div>
-        </div>
-
-        <!-- ปุ่ม "ที่สั่งแล้ว" desktop — อยู่ใน cart sidebar -->
-        <div id="prevOrdersBarDesktop" class="prev-orders-bar-desktop hidden">
-          <button type="button" id="prevOrdersBtnDesktop" class="prev-orders-btn-desktop">
-            <span>📋 ที่สั่งแล้ว</span>
-            <span class="prev-orders-btn-chip-desktop" id="prevOrdersTotalChipDesktop">฿0.00</span>
-          </button>
         </div>
 
         <ul class="cart-items" id="cartItems">
@@ -180,13 +179,6 @@
       </div>
     </div>
 
-  </div>
-  <!-- ปุ่ม "ที่สั่งแล้ว" — fixed มุมขวาบน (QR mode only) -->
-  <div id="previousOrdersBar" class="prev-orders-fab hidden">
-    <button type="button" id="prevOrdersBtn" class="prev-orders-fab-btn" aria-label="ดูรายการที่สั่งแล้ว">
-      <span class="prev-orders-fab-icon">📋</span>
-      <span class="prev-orders-fab-chip" id="prevOrdersTotalChip">฿0.00</span>
-    </button>
   </div>
 
   <script type="module" src="app.js"></script>
