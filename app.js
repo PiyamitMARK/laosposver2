@@ -274,7 +274,12 @@ function renderProducts() {
 
 // ==================== Cart ====================
 function addToCart({ id, name, price, image }) {
-  cart.push({ id, name, price: parseFloat(price), qty: 1, image, table: selectedTable });
+  const existing = cart.find(i => i.id === id);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    cart.push({ id, name, price: parseFloat(price), qty: 1, image, table: selectedTable });
+  }
   renderCart();
 }
 
@@ -379,8 +384,17 @@ function closeReceipt() {
 // ==================== Confirm Modal ====================
 function openConfirmOrderModal() {
   const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-  confirmTableLabel.textContent  = `โต๊ะ ${selectedTable}`;
-  confirmOrderList.innerHTML     = cart.map((i) =>
+  confirmTableLabel.textContent = `โต๊ะ ${selectedTable}`;
+
+  // Merge duplicate items by id
+  const merged = {};
+  cart.forEach(i => {
+    if (!merged[i.id]) merged[i.id] = { ...i };
+    else merged[i.id].qty += i.qty;
+  });
+  const mergedItems = Object.values(merged);
+
+  confirmOrderList.innerHTML = mergedItems.map((i) =>
     `<div class="confirm-order-item"><span>${i.name} × ${i.qty}</span><span>${formatMoney(i.price * i.qty)}</span></div>`
   ).join('');
   confirmTotal.innerHTML = `<span>รวมทั้งหมด</span><span>${formatMoney(total)}</span>`;
@@ -528,7 +542,6 @@ completeOrderBtn.addEventListener('click', () => {
     openConfirmOrderModal();
   }
 });
-printReceiptBtn.addEventListener('click', () => window.print());
 newOrderBtn.addEventListener('click', newOrder);
 confirmOrderCancel.addEventListener('click', closeConfirmOrderModal);
 confirmOrderModal.addEventListener('click', (e) => { if (e.target === confirmOrderModal) closeConfirmOrderModal(); });
@@ -729,10 +742,6 @@ async function initFromQR() {
 
 // ==================== History Modal (QR Mode) ====================
 function addHistoryTab(tableNum) {
-  // ซ่อนปุ่ม FAB ใน header (ถ้ามี)
-  const bar = document.getElementById('previousOrdersBar');
-  if (bar) bar.classList.remove('hidden');
-
   // สลับปุ่มใน cart footer: ซ่อนปุ่มล้าง → แสดงปุ่มที่สั่งแล้ว
   const clearCartBtn2 = document.getElementById('clearCart');
   const viewHistoryBtn = document.getElementById('viewHistoryBtn');
@@ -747,10 +756,6 @@ function addHistoryTab(tableNum) {
 
   function openModal() { if (modal) modal.setAttribute('aria-hidden', 'false'); }
   function closeModal() { if (modal) modal.setAttribute('aria-hidden', 'true'); }
-
-  // FAB button (header)
-  const fabBtn = document.getElementById('prevOrdersBtn');
-  if (fabBtn) fabBtn.addEventListener('click', openModal);
 
   // Cart footer button
   if (viewHistoryBtn) viewHistoryBtn.addEventListener('click', openModal);
@@ -785,13 +790,11 @@ function startTableHistoryInCart(tableNum) {
 }
 
 function renderPreviousOrdersInModal(orders) {
-  const chip    = document.getElementById('prevOrdersTotalChip');
   const btnChip = document.getElementById('historyBtnChip');
   const body    = document.getElementById('prevOrdersModalBody');
 
   const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
   const totalStr = orders.length > 0 ? formatMoney(totalAll) : '';
-  if (chip)    chip.textContent    = totalStr;
   if (btnChip) btnChip.textContent = totalStr;
 
   if (!body) return;
