@@ -33,14 +33,6 @@
           <span id="currentDate" class="date-text"></span>
           <span class="order-chip">ออเดอร์ #<span id="orderNumber">1001</span><span id="tableChip"></span></span>
         </div>
-        <!-- ปุ่ม "ที่สั่งแล้ว" — QR mode only, ซ่อนตอนแรก -->
-        <div id="previousOrdersBar" class="prev-orders-fab hidden">
-          <button type="button" id="prevOrdersBtn" class="prev-orders-fab-btn" aria-label="ดูรายการที่สั่งแล้ว">
-            <span class="prev-orders-fab-icon">📋</span>
-            <span>ที่สั่งแล้ว</span>
-            <span class="prev-orders-fab-chip" id="prevOrdersTotalChip">฿0.00</span>
-          </button>
-        </div>
       </div>
     </header>
 
@@ -161,7 +153,6 @@
           <p class="receipt-footer">ขอบคุณที่ใช้บริการ 🙏</p>
         </div>
         <div class="modal-actions no-print">
-          <button type="button" class="btn btn-ghost" id="printReceipt">🖨 พิมพ์</button>
           <button type="button" class="btn btn-primary" id="newOrder">✓ สั่งอีกครั้ง</button>
         </div>
       </div>
