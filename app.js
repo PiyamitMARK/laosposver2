@@ -813,24 +813,22 @@ function renderPreviousOrdersInModal(orders) {
       <span class="prev-modal-summary-total">${formatMoney(totalAll)}</span>
     </div>
     ${orders.map((order) => {
-      const isPending = order.status === 'pending';
-      const time = new Date(order.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-      return `
-        <div class="prev-modal-card ${isPending ? 'pending' : 'paid'}">
-          <div class="prev-modal-card-header">
-            <span class="prev-modal-card-num">ออเดอร์ #${order.orderNumber} · ${time}</span>
-            <span class="prev-modal-card-badge ${isPending ? 'pending' : 'paid'}">${isPending ? '⏳ รอจ่าย' : '✅ จ่ายแล้ว'}</span>
-          </div>
-          <ul class="prev-modal-card-items">
-            ${(order.items || []).map(i =>
-              `<li><span>${i.name} × ${i.qty}</span><span>${formatMoney(i.price * i.qty)}</span></li>`
-            ).join('')}
-          </ul>
-          <div class="prev-modal-card-total">
-            <span>รวม</span><span>${formatMoney(order.total)}</span>
-          </div>
-        </div>`;
-    }).join('')}
+          return `
+            <div class="prev-modal-card">
+              <ul class="prev-modal-card-items" style="margin-top: 0; border-top: none;">
+                ${(order.items || []).map(i =>
+                  `<li style="list-style: disc; margin-left: 20px;">
+                    <span style="font-weight: bold;">${i.name} × ${i.qty}</span>
+                    <span style="font-weight: bold;">${formatMoney(i.price * i.qty)}</span>
+                  </li>`
+                ).join('')}
+              </ul>
+              <div class="prev-modal-card-total" style="border-top: none; padding-top: 0;">
+                <span style="font-weight: bold;">รวม</span>
+                <span style="font-weight: bold;">${formatMoney(order.total)}</span>
+              </div>
+            </div>`;
+        }).join('')}
   `;
 }
 
