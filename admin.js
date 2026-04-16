@@ -142,13 +142,14 @@ async function clearAllOrders() {
 
 // ==================== Firebase: Table Actions ====================
 async function openTable(tableNum) {
-  // ออก token ใหม่ทุกครั้งที่เปิดโต๊ะ → ป้องกันการ reuse QR เก่า
-  const token = generateToken();
+  // ใช้ token เดิมถ้ามี (QR ไม่เปลี่ยน) — ออก token ใหม่เฉพาะครั้งแรก
+  const existing = tableStates[tableNum];
+  const token = (existing && existing.token) ? existing.token : generateToken();
   await set(ref(db, `tables/${tableNum}`), {
     status: 'open',
     token,
     openedAt: new Date().toISOString(),
-    firstScannedAt: null,  // รีเซ็ต scan window ด้วย
+    firstScannedAt: null,  // รีเซ็ต scan window
   });
 }
 
