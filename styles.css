@@ -969,14 +969,9 @@ body {
   box-shadow: 0 0 0 3px rgba(200,133,58,0.15);
 
 /* ================================================
-   PREVIOUS ORDERS FAB — fixed มุมขวาบน (QR Mode)
+   PREVIOUS ORDERS BUTTON — มุมขวาบนใน header (QR Mode)
    ================================================ */
-.prev-orders-fab {
-  position: fixed;
-  top: 10px;
-  right: 12px;
-  z-index: 60; /* สูงกว่า header (z-index:50) */
-}
+.prev-orders-fab { display: flex; align-items: center; }
 
 .prev-orders-fab-btn {
   display: flex;
@@ -1015,50 +1010,9 @@ body {
   text-align: center;
 }
 
-/* Desktop: ซ่อนบน desktop เพราะ cart sidebar กว้างพอ */
-@media (min-width: 901px) {
-  .prev-orders-fab { display: none !important; }
-  /* บน desktop แสดงปุ่มใน cart-section แทน */
-  .prev-orders-bar-desktop {
-    display: block;
-    padding: 0.6rem 1rem 0;
-  }
-}
-
-/* Mobile: ซ่อน label ให้เหลือแค่ icon + ยอด */
-@media (max-width: 900px) {
-  .prev-orders-bar-desktop { display: none !important; }
-}
-
-/* Desktop button style */
-.prev-orders-btn-desktop {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  background: var(--cream);
-  border: 1.5px solid var(--cream-dark);
-  border-radius: var(--radius-sm);
-  padding: 0.6rem 0.9rem;
-  cursor: pointer;
-  font-family: 'Sarabun', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--brown);
-  transition: background var(--transition), border-color var(--transition);
-}
-.prev-orders-btn-desktop:hover {
-  background: var(--cream-mid);
-  border-color: var(--accent);
-}
-.prev-orders-btn-chip-desktop {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--accent);
-  background: rgba(200,133,58,0.12);
-  border-radius: var(--radius-pill);
-  padding: 0.15rem 0.65rem;
+/* Mobile: ซ่อนข้อความ "ที่สั่งแล้ว" เหลือแค่ icon + chip */
+@media (max-width: 540px) {
+  .prev-orders-fab-btn > span:nth-child(2) { display: none; }
 }
 
 /* ================================================
