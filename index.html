@@ -96,18 +96,13 @@
           </div>
         </div>
 
-        <!-- ที่สั่งแล้ว (แสดงเฉพาะ QR mode) -->
-        <div id="previousOrdersSection" class="previous-orders-section hidden">
-          <div class="previous-orders-header">
-            <span class="previous-orders-title">📋 ที่สั่งแล้ว</span>
-            <span class="previous-orders-total-chip" id="prevOrdersTotalChip"></span>
-          </div>
-          <div id="previousOrdersList" class="previous-orders-list"></div>
-        </div>
-
-        <!-- Divider (แสดงเมื่อมีที่สั่งแล้วและ cart ไม่ว่าง) -->
-        <div id="cartDivider" class="cart-divider hidden">
-          <span>รายการใหม่</span>
+        <!-- ปุ่ม "ที่สั่งแล้ว" (แสดงเฉพาะ QR mode) -->
+        <div id="previousOrdersBar" class="prev-orders-bar hidden">
+          <button type="button" id="prevOrdersBtn" class="prev-orders-btn">
+            <span class="prev-orders-btn-icon">📋</span>
+            <span class="prev-orders-btn-label">ที่สั่งแล้ว</span>
+            <span class="prev-orders-btn-chip" id="prevOrdersTotalChip">฿0.00</span>
+          </button>
         </div>
 
         <ul class="cart-items" id="cartItems">
@@ -168,6 +163,20 @@
         <div class="modal-actions no-print">
           <button type="button" class="btn btn-ghost" id="printReceipt">🖨 พิมพ์</button>
           <button type="button" class="btn btn-primary" id="newOrder">✓ สั่งอีกครั้ง</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Previous Orders Modal (QR mode) -->
+    <div class="modal" id="prevOrdersModal" aria-hidden="true">
+      <div class="modal-content prev-orders-modal-content">
+        <div class="prev-orders-modal-header">
+          <h3 class="modal-title">📋 รายการที่สั่งแล้ว</h3>
+          <span class="prev-orders-modal-table" id="prevOrdersModalTable"></span>
+        </div>
+        <div id="prevOrdersModalBody" class="prev-orders-modal-body"></div>
+        <div class="modal-actions no-print">
+          <button type="button" class="btn btn-primary" id="prevOrdersModalClose">ปิด</button>
         </div>
       </div>
     </div>
