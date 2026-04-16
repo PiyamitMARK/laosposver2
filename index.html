@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ร้านชากาแฟ — POS</title>
+  <title>ตามสั่ง at Laos</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,22 +12,28 @@
 <body>
   <div class="app">
 
+    <!-- Blocked Screen (QR token invalid / table closed) -->
+    <div id="blockedScreen" class="blocked-screen hidden">
+      <div class="blocked-card">
+        <div class="blocked-icon">🔒</div>
+        <h2 class="blocked-title">ไม่สามารถสั่งได้</h2>
+        <p class="blocked-reason" id="blockedReason">กรุณาติดต่อพนักงาน</p>
+        <p class="blocked-sub">กรุณาแสกน QR Code ที่โต๊ะของคุณ</p>
+      </div>
+    </div>
+
     <!-- Header -->
     <header class="header">
       <div class="header-left">
-        <h1 class="logo">☕ ร้านชากาแฟ</h1>
+        <!-- แตะโลโก้ 5 ครั้งเร็วๆ เพื่อเข้าหน้า admin (Easter egg) -->
+        <h1 class="logo" title="">🍚 ตามสั่ง</h1>
       </div>
       <div class="header-right">
         <div class="header-info">
           <span id="currentDate" class="date-text"></span>
-          <span class="order-chip">ออเดอร์ #<span id="orderNumber">1001</span></span>
+          <span class="order-chip">ออเดอร์ #<span id="orderNumber">1001</span><span id="tableChip"></span></span>
         </div>
-        <!-- Floating cart toggle — มุมขวาบน (mobile) -->
-        <button type="button" class="cart-fab" id="cartFab" aria-label="ดูรายการ">
-          🛒
-          <span class="cart-fab-badge" id="cartFabBadge" style="display:none">0</span>
-        </button>
-        <a href="admin.html" class="admin-btn" title="แอดมิน">⚙️</a>
+        <!-- ไม่มีปุ่ม Admin ให้เห็น — ใช้ Easter egg บน logo แทน -->
       </div>
     </header>
 
@@ -36,34 +42,46 @@
       <!-- Left: Products -->
       <section class="products-section">
 
-        <!-- Options bar -->
-        <div class="options-bar">
-          <div class="options-group">
-            <span class="options-label">ประเภท</span>
-            <div class="pill-group">
-              <button class="pill-btn temp-btn active" data-temp="เย็น">🧊 เย็น</button>
-              <button class="pill-btn temp-btn" data-temp="ร้อน">🔥 ร้อน</button>
-              <button class="pill-btn temp-btn" data-temp="ปั่น">🌀 ปั่น</button>
-            </div>
-          </div>
-          <div class="options-group">
-            <span class="options-label">หวาน</span>
-            <div class="pill-group">
-              <button class="pill-btn sweet-btn" data-sweet="ไม่หวาน">ไม่หวาน</button>
-              <button class="pill-btn sweet-btn" data-sweet="หวานน้อย">น้อย</button>
-              <button class="pill-btn sweet-btn active" data-sweet="หวานปกติ">ปกติ</button>
-              <button class="pill-btn sweet-btn" data-sweet="หวานมาก">มาก</button>
-            </div>
+        <!-- Table selector (ซ่อนเมื่อ QR mode) -->
+        <div class="table-bar">
+          <label class="table-bar-label" for="tableSelect">🪑 เลือกโต๊ะ</label>
+          <select id="tableSelect" class="table-select">
+            <option value="" disabled selected>— เลือกโต๊ะ —</option>
+            <option value="1">โต๊ะ 1</option>
+            <option value="2">โต๊ะ 2</option>
+            <option value="3">โต๊ะ 3</option>
+            <option value="4">โต๊ะ 4</option>
+            <option value="5">โต๊ะ 5</option>
+            <option value="6">โต๊ะ 6</option>
+            <option value="7">โต๊ะ 7</option>
+            <option value="8">โต๊ะ 8</option>
+            <option value="9">โต๊ะ 9</option>
+            <option value="10">โต๊ะ 10</option>
+            <option value="11">โต๊ะ 11</option>
+            <option value="12">โต๊ะ 12</option>
+            <option value="13">โต๊ะ 13</option>
+            <option value="14">โต๊ะ 14</option>
+            <option value="15">โต๊ะ 15</option>
+            <option value="16">โต๊ะ 16</option>
+            <option value="17">โต๊ะ 17</option>
+            <option value="18">โต๊ะ 18</option>
+            <option value="19">โต๊ะ 19</option>
+            <option value="20">โต๊ะ 20</option>
+          </select>
+        </div>
+
+        <!-- Overlay เมื่อยังไม่เลือกโต๊ะ -->
+        <div class="products-overlay" id="productsOverlay">
+          <div class="overlay-msg">
+            <span class="overlay-icon">🪑</span>
+            <span>กรุณาเลือกโต๊ะก่อน</span>
           </div>
         </div>
 
         <!-- Category tabs -->
         <nav class="categories">
-          <button class="category-btn active" data-category="coffee">กาแฟ</button>
-          <button class="category-btn" data-category="namwhan">น้ำหวาน</button>
-          <button class="category-btn" data-category="kaosoi">ข้าวซอย</button>
-          <button class="category-btn" data-category="kaomutod">ข้าวหมูทอด</button>
-          <button class="category-btn" data-category="soda">โซดา</button>
+          <button class="category-btn active" data-category="kao">MENU</button>
+          <button class="category-btn" data-category="nam">น้ำ</button>
         </nav>
 
         <!-- Products grid -->
@@ -76,6 +94,15 @@
           <div class="cart-title-row">
             <h2 class="cart-title">รายการสั่งซื้อ <span class="cart-badge" id="cartBadge" style="display:none">0</span></h2>
           </div>
+        </div>
+
+        <!-- ปุ่ม "ที่สั่งแล้ว" (แสดงเฉพาะ QR mode) -->
+        <div id="previousOrdersBar" class="prev-orders-bar hidden">
+          <button type="button" id="prevOrdersBtn" class="prev-orders-btn">
+            <span class="prev-orders-btn-icon">📋</span>
+            <span class="prev-orders-btn-label">ที่สั่งแล้ว</span>
+            <span class="prev-orders-btn-chip" id="prevOrdersTotalChip">฿0.00</span>
+          </button>
         </div>
 
         <ul class="cart-items" id="cartItems">
@@ -104,6 +131,7 @@
     <div class="modal" id="confirmOrderModal" aria-hidden="true">
       <div class="modal-content confirm-content">
         <h3 class="modal-title">ยืนยันสั่งซื้อ</h3>
+        <p id="confirmTableLabel" class="confirm-table-label"></p>
         <div class="confirm-order-list" id="confirmOrderList"></div>
         <div class="confirm-total" id="confirmTotal"></div>
         <div class="modal-actions">
@@ -118,8 +146,9 @@
       <div class="modal-content receipt-modal-content">
         <div class="receipt" id="receiptContent">
           <div class="receipt-header">
-            <p class="receipt-shop">☕ ร้านชากาแฟ</p>
+            <p class="receipt-shop">🍚 ตามสั่ง at Laos</p>
             <p class="receipt-order">ออเดอร์ #<span id="receiptOrderNum"></span></p>
+            <p class="receipt-table" id="receiptTable"></p>
             <p class="receipt-date" id="receiptDate"></p>
           </div>
           <div class="receipt-divider">--------------------------------</div>
@@ -133,7 +162,21 @@
         </div>
         <div class="modal-actions no-print">
           <button type="button" class="btn btn-ghost" id="printReceipt">🖨 พิมพ์</button>
-          <button type="button" class="btn btn-primary" id="newOrder">ออเดอร์ใหม่</button>
+          <button type="button" class="btn btn-primary" id="newOrder">✓ สั่งอีกครั้ง</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Previous Orders Modal (QR mode) -->
+    <div class="modal" id="prevOrdersModal" aria-hidden="true">
+      <div class="modal-content prev-orders-modal-content">
+        <div class="prev-orders-modal-header">
+          <h3 class="modal-title">📋 รายการที่สั่งแล้ว</h3>
+          <span class="prev-orders-modal-table" id="prevOrdersModalTable"></span>
+        </div>
+        <div id="prevOrdersModalBody" class="prev-orders-modal-body"></div>
+        <div class="modal-actions no-print">
+          <button type="button" class="btn btn-primary" id="prevOrdersModalClose">ปิด</button>
         </div>
       </div>
     </div>
