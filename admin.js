@@ -44,6 +44,7 @@ const todayTotal       = document.getElementById('todayTotal');
 const tabRecent        = document.getElementById('tabRecent');
 const tabHistory       = document.getElementById('tabHistory');
 const tabTables        = document.getElementById('tabTables');
+const tabTableRevenue  = document.getElementById('tabTableRevenue');
 const historyContent   = document.getElementById('historyContent');
 const historyEmpty     = document.getElementById('historyEmpty');
 const tabQr            = document.getElementById('tabQr');
@@ -110,6 +111,8 @@ function startRealtimeListener() {
     renderDailySummary();
     renderOrders();
     renderHistory();
+    // re-render table revenue ถ้าแท็บนั้นเปิดอยู่
+    if (!tabTableRevenue.classList.contains('hidden')) renderTableRevenue();
   });
 
   onValue(ref(db, 'tables'), (snapshot) => {
@@ -319,11 +322,13 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach((t) =>
     t.classList.toggle('active', t.dataset.tab === tabId)
   );
-  tabRecent.classList.toggle('hidden',   tabId !== 'recent');
-  tabHistory.classList.toggle('hidden',  tabId !== 'history');
-  tabTables.classList.toggle('hidden',   tabId !== 'tables');
-  tabQr.classList.toggle('hidden',       tabId !== 'qr');
+  tabRecent.classList.toggle('hidden',        tabId !== 'recent');
+  tabHistory.classList.toggle('hidden',       tabId !== 'history');
+  tabTables.classList.toggle('hidden',        tabId !== 'tables');
+  tabTableRevenue.classList.toggle('hidden',  tabId !== 'tableRevenue');
+  tabQr.classList.toggle('hidden',            tabId !== 'qr');
   if (tabId === 'qr') initQrTab();
+  if (tabId === 'tableRevenue') renderTableRevenue();
 }
 
 // ==================== Auth Events ====================
@@ -489,6 +494,119 @@ exportConfirm.addEventListener('click', async () => {
   }
 });
 
+// ==================== Table Revenue Tab ====================
+function renderTableRevenue() {
+  const tableSelect  = document.getElementById('revenueTableSelect');
+  const periodSelect = document.getElementById('revenuePeriodSelect');
+  if (!tableSelect || !periodSelect) return;
+
+  const tableVal  = tableSelect.value;
+  const period    = periodSelect.value;
+
+  // filter orders by period + paid only
+  let filtered = allOrders.filter(o => o.status === 'paid');
+  if (period === 'today')  filtered = filtered.filter(o => isToday(o.date));
+  if (period === 'month')  filtered = filtered.filter(o => isWithinLast30Days(o.date));
+
+  // filter by table
+  if (tableVal !== 'all') {
+    filtered = filtered.filter(o => String(o.table) === tableVal);
+  }
+
+  // Summary cards
+  const summaryEl = document.getElementById('tableRevenueSummary');
+  const totalAmt  = filtered.reduce((s, o) => s + o.total, 0);
+  const totalOrd  = filtered.length;
+
+  // per-table breakdown for "all" mode
+  let perTableHtml = '';
+  if (tableVal === 'all') {
+    const byTable = {};
+    filtered.forEach(o => {
+      const k = o.table || '—';
+      if (!byTable[k]) byTable[k] = { count: 0, total: 0 };
+      byTable[k].count++;
+      byTable[k].total += o.total;
+    });
+    const rows = Object.entries(byTable).sort((a, b) => b[1].total - a[1].total);
+    perTableHtml = rows.length ? `
+      <div class="revenue-table-breakdown">
+        <h4 class="revenue-breakdown-title">สรุปแยกรายโต๊ะ</h4>
+        <table class="revenue-breakdown-table">
+          <thead><tr><th>โต๊ะ</th><th>ออเดอร์</th><th>ยอดรวม</th></tr></thead>
+          <tbody>
+            ${rows.map(([t, d]) =>
+              `<tr><td>โต๊ะ ${t}</td><td>${d.count}</td><td>${formatMoney(d.total)}</td></tr>`
+            ).join('')}
+          </tbody>
+        </table>
+      </div>` : '';
+  }
+
+  summaryEl.innerHTML = `
+    <div class="summary-card">
+      <span class="summary-icon">🧾</span>
+      <div>
+        <div class="summary-label">${tableVal === 'all' ? 'ออเดอร์ทั้งหมด' : `ออเดอร์ โต๊ะ ${tableVal}`}</div>
+        <div class="summary-value">${totalOrd}</div>
+      </div>
+    </div>
+    <div class="summary-card accent">
+      <span class="summary-icon">💰</span>
+      <div>
+        <div class="summary-label">ยอดรวม</div>
+        <div class="summary-value">${formatMoney(totalAmt)}</div>
+      </div>
+    </div>
+    ${perTableHtml}
+  `;
+
+  // Daily breakdown
+  const content = document.getElementById('tableRevenueContent');
+  const empty   = document.getElementById('tableRevenueEmpty');
+
+  if (filtered.length === 0) {
+    content.innerHTML = '';
+    content.classList.add('hidden');
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  content.classList.remove('hidden');
+
+  const byDay = {};
+  filtered.forEach(o => {
+    const key = getDateKey(o.date);
+    if (!byDay[key]) byDay[key] = { date: o.date, orders: [], total: 0 };
+    byDay[key].orders.push(o);
+    byDay[key].total += o.total;
+  });
+
+  content.innerHTML = Object.keys(byDay).sort((a, b) => b.localeCompare(a)).map(key => {
+    const day = byDay[key];
+    return `
+      <section class="history-day">
+        <div class="history-day-header">
+          <span class="history-day-date">${formatDateOnly(day.date)}</span>
+          <div class="history-day-summary">
+            <span class="history-day-count">${day.orders.length} ออเดอร์</span>
+            <span class="history-day-total">${formatMoney(day.total)}</span>
+          </div>
+        </div>
+        <div class="history-day-body">
+          <ul class="history-orders">
+            ${day.orders.map(o =>
+              `<li class="history-order-row">
+                <span>ออเดอร์ #${o.orderNumber}${o.table ? ` · โต๊ะ ${o.table}` : ''} · ${formatDate(o.date)}</span>
+                <span>${formatMoney(o.total)}</span>
+              </li>`
+            ).join('')}
+          </ul>
+        </div>
+      </section>`;
+  }).join('');
+}
+
 // ==================== QR Code Tab ====================
 let qrInstance    = null;
 let qrInitialized = false;
@@ -577,6 +695,13 @@ async function copyQrLink() {
     setTimeout(() => { btn.textContent = orig; }, 2000);
   });
 }
+
+// ==================== Table Revenue: event listeners ====================
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'revenueTableSelect' || e.target.id === 'revenuePeriodSelect') {
+    renderTableRevenue();
+  }
+});
 
 // ==================== Init ====================
 checkAuth();
