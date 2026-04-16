@@ -700,10 +700,24 @@ async function initFromQR() {
   // เพิ่มแท็บประวัติ
   addHistoryTab(tableNum);
 
-  // Real-time watch: ถ้า Admin ปิดโต๊ะกลางคัน
+  // Real-time watch: ถ้า Admin ปิดโต๊ะกลางคัน หรือเปิดโต๊ะใหม่
+  let watchedOpenedAt = (await get(ref(db, `tables/${tableNum}`))).val()?.openedAt || null;
   onValue(ref(db, `tables/${tableNum}`), (snap) => {
     if (!snap.exists()) return;
     const data = snap.val();
+
+    // Admin เปิดโต๊ะใหม่ (openedAt เปลี่ยน) → reset cart + ล้างประวัติ session นี้
+    if (data.status === 'open' && watchedOpenedAt && data.openedAt !== watchedOpenedAt) {
+      watchedOpenedAt = data.openedAt;
+      cart = [];
+      renderCart();
+      closeCart(false);
+      // ล้าง session เก่า → renderPreviousOrdersInModal จะแสดงว่าว่าง
+      clearStoredSession(tableNum);
+      renderPreviousOrdersInModal([]);
+      return;
+    }
+
     if (data.status !== 'open' || data.token !== sessionToken) {
       if (receiptModal.getAttribute('aria-hidden') === 'false') return;
       showBlockedScreen('โต๊ะถูกปิดโดยพนักงาน\nขอบคุณที่ใช้บริการ 🙏');
@@ -713,45 +727,51 @@ async function initFromQR() {
 
 // ==================== History Modal (QR Mode) ====================
 function addHistoryTab(tableNum) {
-  // แสดงปุ่ม "ที่สั่งแล้ว" ใน cart header bar
+  // แสดงปุ่ม FAB มุมขวาบน (mobile)
   const bar = document.getElementById('previousOrdersBar');
   if (bar) bar.classList.remove('hidden');
 
-  // เพิ่มปุ่มใน cart-title-row ด้วย
-  const titleRow = document.querySelector('.cart-title-row');
-  if (titleRow && !document.getElementById('prevOrdersBtnInline')) {
-    // ปุ่มอยู่ใน bar แล้ว ไม่ต้องเพิ่มซ้ำ
-  }
+  // แสดงปุ่มใน cart sidebar (desktop)
+  const barDesktop = document.getElementById('prevOrdersBarDesktop');
+  if (barDesktop) barDesktop.classList.remove('hidden');
 
   // Modal elements
-  const modal     = document.getElementById('prevOrdersModal');
-  const closeBtn  = document.getElementById('prevOrdersModalClose');
+  const modal      = document.getElementById('prevOrdersModal');
+  const closeBtn   = document.getElementById('prevOrdersModalClose');
   const tableLabel = document.getElementById('prevOrdersModalTable');
   if (tableLabel) tableLabel.textContent = `โต๊ะ ${tableNum}`;
 
-  // Open modal
+  function openModal() { if (modal) modal.setAttribute('aria-hidden', 'false'); }
+  function closeModal() { if (modal) modal.setAttribute('aria-hidden', 'true'); }
+
+  // Mobile FAB button
   const openBtn = document.getElementById('prevOrdersBtn');
-  if (openBtn) {
-    openBtn.addEventListener('click', () => {
-      if (modal) modal.setAttribute('aria-hidden', 'false');
-    });
-  }
+  if (openBtn) openBtn.addEventListener('click', openModal);
+
+  // Desktop sidebar button
+  const openBtnDesktop = document.getElementById('prevOrdersBtnDesktop');
+  if (openBtnDesktop) openBtnDesktop.addEventListener('click', openModal);
 
   // Close modal
-  if (closeBtn) closeBtn.addEventListener('click', () => modal.setAttribute('aria-hidden', 'true'));
-  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) modal.setAttribute('aria-hidden', 'true'); });
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
   // Start real-time listener
   startTableHistoryInCart(tableNum);
 }
 
 function startTableHistoryInCart(tableNum) {
+  // ดึง openedAt ปัจจุบันจาก sessionStorage เพื่อ filter เฉพาะออเดอร์ของ session นี้
+  const currentOpenedAt = getStoredOpenedAt(tableNum);
+
   onValue(ref(db, 'orders'), (snapshot) => {
     const tableOrders = [];
     if (snapshot.exists()) {
       snapshot.forEach((child) => {
         const o = child.val();
         if (String(o.table) === String(tableNum)) {
+          // ถ้ามี openedAt ให้กรองเฉพาะออเดอร์ที่สั่งหลังจากเปิดโต๊ะรอบนี้
+          if (currentOpenedAt && o.date < currentOpenedAt) return;
           tableOrders.push({ firebaseKey: child.key, ...o });
         }
       });
@@ -763,10 +783,13 @@ function startTableHistoryInCart(tableNum) {
 
 function renderPreviousOrdersInModal(orders) {
   const chip = document.getElementById('prevOrdersTotalChip');
+  const chipDesktop = document.getElementById('prevOrdersTotalChipDesktop');
   const body = document.getElementById('prevOrdersModalBody');
 
   const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
-  if (chip) chip.textContent = orders.length > 0 ? formatMoney(totalAll) : '฿0.00';
+  const totalStr = orders.length > 0 ? formatMoney(totalAll) : '฿0.00';
+  if (chip) chip.textContent = totalStr;
+  if (chipDesktop) chipDesktop.textContent = totalStr;
 
   if (!body) return;
 
