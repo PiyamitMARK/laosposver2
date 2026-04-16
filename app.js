@@ -309,9 +309,11 @@ function renderCart() {
         <span class="qty-num">${item.qty}</span>
         <button type="button" class="qty-btn" aria-label="Increase">+</button>
       </div>
+      <button type="button" class="cart-item-remove" aria-label="ลบรายการ">✕</button>
     `;
     li.querySelector('.qty-btn:first-child').addEventListener('click', () => updateQty(index, -1));
     li.querySelector('.qty-btn:last-child').addEventListener('click',  () => updateQty(index, 1));
+    li.querySelector('.cart-item-remove').addEventListener('click', () => removeFromCart(index));
     cartItemsEl.appendChild(li);
   });
 
@@ -727,9 +729,15 @@ async function initFromQR() {
 
 // ==================== History Modal (QR Mode) ====================
 function addHistoryTab(tableNum) {
-  // แสดงปุ่มมุมขวาบนใน header
+  // ซ่อนปุ่ม FAB ใน header (ถ้ามี)
   const bar = document.getElementById('previousOrdersBar');
   if (bar) bar.classList.remove('hidden');
+
+  // สลับปุ่มใน cart footer: ซ่อนปุ่มล้าง → แสดงปุ่มที่สั่งแล้ว
+  const clearCartBtn2 = document.getElementById('clearCart');
+  const viewHistoryBtn = document.getElementById('viewHistoryBtn');
+  if (clearCartBtn2) clearCartBtn2.classList.add('hidden');
+  if (viewHistoryBtn) viewHistoryBtn.classList.remove('hidden');
 
   // Modal elements
   const modal      = document.getElementById('prevOrdersModal');
@@ -740,9 +748,12 @@ function addHistoryTab(tableNum) {
   function openModal() { if (modal) modal.setAttribute('aria-hidden', 'false'); }
   function closeModal() { if (modal) modal.setAttribute('aria-hidden', 'true'); }
 
-  // Header button
-  const openBtn = document.getElementById('prevOrdersBtn');
-  if (openBtn) openBtn.addEventListener('click', openModal);
+  // FAB button (header)
+  const fabBtn = document.getElementById('prevOrdersBtn');
+  if (fabBtn) fabBtn.addEventListener('click', openModal);
+
+  // Cart footer button
+  if (viewHistoryBtn) viewHistoryBtn.addEventListener('click', openModal);
 
   // Close modal
   if (closeBtn) closeBtn.addEventListener('click', closeModal);
@@ -774,12 +785,14 @@ function startTableHistoryInCart(tableNum) {
 }
 
 function renderPreviousOrdersInModal(orders) {
-  const chip = document.getElementById('prevOrdersTotalChip');
-  const body = document.getElementById('prevOrdersModalBody');
+  const chip     = document.getElementById('prevOrdersTotalChip');   // FAB chip
+  const btnChip  = document.getElementById('historyBtnChip');        // cart footer chip
+  const body     = document.getElementById('prevOrdersModalBody');
 
   const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
-  const totalStr = orders.length > 0 ? formatMoney(totalAll) : '฿0.00';
-  if (chip) chip.textContent = totalStr;
+  const totalStr = orders.length > 0 ? formatMoney(totalAll) : '';
+  if (chip)    chip.textContent    = totalStr;
+  if (btnChip) btnChip.textContent = totalStr;
 
   if (!body) return;
 
