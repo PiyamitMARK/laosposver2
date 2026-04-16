@@ -785,9 +785,9 @@ function startTableHistoryInCart(tableNum) {
 }
 
 function renderPreviousOrdersInModal(orders) {
-  const chip     = document.getElementById('prevOrdersTotalChip');   // FAB chip
-  const btnChip  = document.getElementById('historyBtnChip');        // cart footer chip
-  const body     = document.getElementById('prevOrdersModalBody');
+  const chip    = document.getElementById('prevOrdersTotalChip');
+  const btnChip = document.getElementById('historyBtnChip');
+  const body    = document.getElementById('prevOrdersModalBody');
 
   const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
   const totalStr = orders.length > 0 ? formatMoney(totalAll) : '';
@@ -805,37 +805,30 @@ function renderPreviousOrdersInModal(orders) {
     return;
   }
 
-  const hasPending = orders.some(o => o.status === 'pending');
+  // รวมรายการซ้ำทุก order เข้าด้วยกัน (key = name+price)
+  const merged = {};
+  orders.forEach(o => {
+    (o.items || []).forEach(i => {
+      const key = `${i.name}__${i.price}`;
+      if (!merged[key]) merged[key] = { name: i.name, price: i.price, qty: 0 };
+      merged[key].qty += i.qty;
+    });
+  });
+  const items = Object.values(merged);
+
   body.innerHTML = `
-    ${hasPending ? `<div class="prev-modal-notice">⏳ มีรายการรอชำระเงิน กรุณาติดต่อพนักงาน</div>` : ''}
-    <div class="prev-modal-summary">
-      <span>${orders.length} ออเดอร์</span>
-      <span class="prev-modal-summary-total">${formatMoney(totalAll)}</span>
+    <ul class="prev-modal-items-list">
+      ${items.map(i => `
+        <li class="prev-modal-item">
+          <span class="prev-modal-item-name">${i.name}</span>
+          <span class="prev-modal-item-qty">× ${i.qty}</span>
+          <span class="prev-modal-item-price">${formatMoney(i.price * i.qty)}</span>
+        </li>`).join('')}
+    </ul>
+    <div class="prev-modal-grand">
+      <span>ยอดรวม</span>
+      <span>${formatMoney(totalAll)}</span>
     </div>
-    ${orders.map((order) => {
-          return `
-            <div class="prev-modal-card">
-              <ul class="prev-modal-card-items" style="margin-top: 0; border-top: none;">
-                ${(order.items || []).map(i =>
-                  `<li style="list-style: disc; margin-left: 20px;">
-                    <span style="font-weight: bold;">${i.name} × ${i.qty}</span>
-                    <span style="font-weight: bold;">${formatMoney(i.price * i.qty)}</span>
-                  </li>`
-                ).join('')}
-              </ul>
-              </div>
-              
-              <div style="
-                display: flex;
-                justify-content: flex-end;
-                font-weight: bold;
-                font-size: 16px;
-                margin-top: 10px;
-              ">
-                รวมทั้งหมด ${formatMoney(totalAll)}
-              </div>
-              `;
-        }).join('')}
   `;
 }
 
