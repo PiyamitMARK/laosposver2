@@ -44,29 +44,30 @@
 
         <!-- Table selector (ซ่อนเมื่อ QR mode) -->
         <div class="table-bar">
-          <span class="table-bar-label">🪑 เลือกโต๊ะ</span>
-          <div class="table-grid">
-            <button class="table-btn" data-table="1">1</button>
-            <button class="table-btn" data-table="2">2</button>
-            <button class="table-btn" data-table="3">3</button>
-            <button class="table-btn" data-table="4">4</button>
-            <button class="table-btn" data-table="5">5</button>
-            <button class="table-btn" data-table="6">6</button>
-            <button class="table-btn" data-table="7">7</button>
-            <button class="table-btn" data-table="8">8</button>
-            <button class="table-btn" data-table="9">9</button>
-            <button class="table-btn" data-table="10">10</button>
-            <button class="table-btn" data-table="11">11</button>
-            <button class="table-btn" data-table="12">12</button>
-            <button class="table-btn" data-table="13">13</button>
-            <button class="table-btn" data-table="14">14</button>
-            <button class="table-btn" data-table="15">15</button>
-            <button class="table-btn" data-table="16">16</button>
-            <button class="table-btn" data-table="17">17</button>
-            <button class="table-btn" data-table="18">18</button>
-            <button class="table-btn" data-table="19">19</button>
-            <button class="table-btn" data-table="20">20</button>
-          </div>
+          <label class="table-bar-label" for="tableSelect">🪑 เลือกโต๊ะ</label>
+          <select id="tableSelect" class="table-select">
+            <option value="" disabled selected>— เลือกโต๊ะ —</option>
+            <option value="1">โต๊ะ 1</option>
+            <option value="2">โต๊ะ 2</option>
+            <option value="3">โต๊ะ 3</option>
+            <option value="4">โต๊ะ 4</option>
+            <option value="5">โต๊ะ 5</option>
+            <option value="6">โต๊ะ 6</option>
+            <option value="7">โต๊ะ 7</option>
+            <option value="8">โต๊ะ 8</option>
+            <option value="9">โต๊ะ 9</option>
+            <option value="10">โต๊ะ 10</option>
+            <option value="11">โต๊ะ 11</option>
+            <option value="12">โต๊ะ 12</option>
+            <option value="13">โต๊ะ 13</option>
+            <option value="14">โต๊ะ 14</option>
+            <option value="15">โต๊ะ 15</option>
+            <option value="16">โต๊ะ 16</option>
+            <option value="17">โต๊ะ 17</option>
+            <option value="18">โต๊ะ 18</option>
+            <option value="19">โต๊ะ 19</option>
+            <option value="20">โต๊ะ 20</option>
+          </select>
         </div>
 
         <!-- Overlay เมื่อยังไม่เลือกโต๊ะ -->
@@ -93,6 +94,20 @@
           <div class="cart-title-row">
             <h2 class="cart-title">รายการสั่งซื้อ <span class="cart-badge" id="cartBadge" style="display:none">0</span></h2>
           </div>
+        </div>
+
+        <!-- ที่สั่งแล้ว (แสดงเฉพาะ QR mode) -->
+        <div id="previousOrdersSection" class="previous-orders-section hidden">
+          <div class="previous-orders-header">
+            <span class="previous-orders-title">📋 ที่สั่งแล้ว</span>
+            <span class="previous-orders-total-chip" id="prevOrdersTotalChip"></span>
+          </div>
+          <div id="previousOrdersList" class="previous-orders-list"></div>
+        </div>
+
+        <!-- Divider (แสดงเมื่อมีที่สั่งแล้วและ cart ไม่ว่าง) -->
+        <div id="cartDivider" class="cart-divider hidden">
+          <span>รายการใหม่</span>
         </div>
 
         <ul class="cart-items" id="cartItems">
