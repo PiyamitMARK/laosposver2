@@ -1054,6 +1054,19 @@ body {
   gap: 0.75rem;
   scrollbar-width: thin;
   scrollbar-color: var(--cream-dark) transparent;
+   max-height: 400px;    /* กำหนดความสูงสูงสุด (ปรับตัวเลขได้ตามชอบ) */
+    overflow-y: auto;     /* ถ้าเนื้อหายาวเกิน 400px ให้ขึ้น Scrollbar แนวตั้ง */
+    padding-right: 8px;   /* เพิ่มพื้นที่ด้านขวาเผื่อให้ Scrollbar ไม่ทับตัวหนังสือ */
+}
+
+/* ปรับแต่ง Scrollbar ให้ดูสวยงาม (สำหรับ Chrome/Safari) */
+.prev-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.prev-modal-body::-webkit-scrollbar-thumb {
+    background-color: #d1d1d1;
+    border-radius: 10px;
 }
 .prev-modal-empty {
   display: flex;
