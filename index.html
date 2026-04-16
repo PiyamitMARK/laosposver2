@@ -118,7 +118,9 @@
             </div>
           </div>
           <div class="cart-actions">
+            <!-- ปุ่มล้าง (non-QR) / ที่สั่งแล้ว (QR mode) — สลับกันโดย JS -->
             <button type="button" class="btn btn-ghost" id="clearCart">🗑 ล้าง</button>
+            <button type="button" class="btn btn-ghost btn-history hidden" id="viewHistoryBtn">📋 ที่สั่งแล้ว <span class="history-btn-chip" id="historyBtnChip"></span></button>
             <button type="button" class="btn btn-primary" id="completeOrder">✓ สั่งซื้อ</button>
           </div>
         </div>
