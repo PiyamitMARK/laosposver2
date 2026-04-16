@@ -805,30 +805,25 @@ function renderPreviousOrdersInModal(orders) {
     return;
   }
 
-  const hasPending = orders.some(o => o.status === 'pending');
+  // แก้ไขส่วนนี้เพื่อลบแจ้งเตือน และสรุปจำนวนออเดอร์ออก
   body.innerHTML = `
-    ${hasPending ? `<div class="prev-modal-notice">⏳ มีรายการรอชำระเงิน กรุณาติดต่อพนักงาน</div>` : ''}
-    <div class="prev-modal-summary">
-      <span>${orders.length} ออเดอร์</span>
-      <span class="prev-modal-summary-total">${formatMoney(totalAll)}</span>
-    </div>
     ${orders.map((order) => {
-          return `
-            <div class="prev-modal-card">
-              <ul class="prev-modal-card-items" style="margin-top: 0; border-top: none;">
-                ${(order.items || []).map(i =>
-                  `<li style="list-style: disc; margin-left: 20px;">
-                    <span style="font-weight: bold;">${i.name} × ${i.qty}</span>
-                    <span style="font-weight: bold;">${formatMoney(i.price * i.qty)}</span>
-                  </li>`
-                ).join('')}
-              </ul>
-              <div class="prev-modal-card-total" style="border-top: none; padding-top: 0;">
-                <span style="font-weight: bold;">รวม</span>
-                <span style="font-weight: bold;">${formatMoney(order.total)}</span>
-              </div>
-            </div>`;
-        }).join('')}
+      return `
+        <div class="prev-modal-card" style="margin-bottom: 0; padding: 10px 0;">
+          <ul class="prev-modal-card-items" style="margin-top: 0; border-top: none; padding-left: 0;">
+            ${(order.items || []).map(i =>
+              `<li style="list-style: disc; margin-left: 20px; display: list-item; color: #333;">
+                <span style="font-weight: bold; font-size: 1.1rem;">${i.name} × ${i.qty}</span>
+                <span style="font-weight: bold; font-size: 1.1rem; float: right;">${formatMoney(i.price * i.qty)}</span>
+              </li>`
+            ).join('')}
+          </ul>
+          <div class="prev-modal-card-total" style="border-top: none; padding-top: 0; margin-top: 5px;">
+            <span style="font-weight: bold; font-size: 1.1rem;">รวม</span>
+            <span style="font-weight: bold; font-size: 1.1rem; float: right;">${formatMoney(order.total)}</span>
+          </div>
+        </div>`;
+    }).join('')}
   `;
 }
 
