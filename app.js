@@ -150,8 +150,18 @@ function getStoredSession(tableNum) {
   return sessionStorage.getItem(SESSION_KEY_PREFIX + tableNum);
 }
 
-function storeSession(tableNum, key) {
+function storeSession(tableNum, key, openedAt) {
   sessionStorage.setItem(SESSION_KEY_PREFIX + tableNum, key);
+  sessionStorage.setItem(SESSION_KEY_PREFIX + tableNum + '-openedAt', openedAt);
+}
+
+function getStoredOpenedAt(tableNum) {
+  return sessionStorage.getItem(SESSION_KEY_PREFIX + tableNum + '-openedAt');
+}
+
+function clearStoredSession(tableNum) {
+  sessionStorage.removeItem(SESSION_KEY_PREFIX + tableNum);
+  sessionStorage.removeItem(SESSION_KEY_PREFIX + tableNum + '-openedAt');
 }
 
 async function validateSession(tableNum, token) {
@@ -170,9 +180,13 @@ async function validateSession(tableNum, token) {
 
     // ตรวจ client session (คนที่เคย scan แล้วในเครื่องนี้ผ่านได้เลย — กัน reload)
     const expectedKey = await getClientSessionKey(tableNum, token);
-    const storedKey = getStoredSession(tableNum);
+    const storedKey   = getStoredSession(tableNum);
+    const storedOpenedAt = getStoredOpenedAt(tableNum);
+
     if (storedKey === expectedKey) {
-      return { valid: true, isReturning: true };
+      // ตรวจว่า openedAt ตรงกับที่เก็บไว้ไหม — ถ้าไม่ตรงแสดงว่า admin เปิดโต๊ะใหม่
+      const sessionIsStale = storedOpenedAt && storedOpenedAt !== data.openedAt;
+      return { valid: true, isReturning: true, resetCart: sessionIsStale };
     }
 
     // === Layer 4: One-time Scan Window ===
@@ -188,8 +202,8 @@ async function validateSession(tableNum, token) {
       await update(ref(db, `tables/${tableNum}`), { firstScannedAt: new Date().toISOString() });
     }
 
-    // บันทึก session ลง sessionStorage
-    storeSession(tableNum, expectedKey);
+    // บันทึก session ลง sessionStorage (พร้อม openedAt เพื่อตรวจ reopen)
+    storeSession(tableNum, expectedKey, data.openedAt);
     return { valid: true, isReturning: false };
 
   } catch (err) {
@@ -308,7 +322,6 @@ function renderCart() {
     badge.style.display = totalQty > 0 ? 'inline-flex' : 'none';
   }
   totalEl.textContent = formatMoney(cart.reduce((sum, i) => sum + i.price * i.qty, 0));
-  updateCartDivider();
 }
 
 function clearCart() {
@@ -651,10 +664,23 @@ async function initFromQR() {
     return;
   }
 
-  const { valid, reason } = await validateSession(tableNum, tokenParam);
+  const { valid, reason, resetCart } = await validateSession(tableNum, tokenParam);
   if (!valid) {
     showBlockedScreen(reason || 'ไม่สามารถสั่งได้ กรุณาติดต่อพนักงาน');
     return;
+  }
+
+  // ถ้าโต๊ะถูกเปิดใหม่ (openedAt เปลี่ยน) → ล้าง cart + อัปเดต session
+  if (resetCart) {
+    cart = [];
+    renderCart();
+    // อัปเดต openedAt ที่เก็บไว้ให้ตรงกับปัจจุบัน
+    const snap = await get(ref(db, `tables/${tableNum}`));
+    if (snap.exists()) {
+      const d = snap.val();
+      const newKey = await getClientSessionKey(tableNum, tokenParam);
+      storeSession(tableNum, newKey, d.openedAt);
+    }
   }
 
   sessionToken = tokenParam;
@@ -685,17 +711,41 @@ async function initFromQR() {
   });
 }
 
-// ==================== History in Cart (QR Mode) ====================
+// ==================== History Modal (QR Mode) ====================
 function addHistoryTab(tableNum) {
-  // ไม่สร้าง category tab แล้ว — แสดงประวัติใน cart section แทน
+  // แสดงปุ่ม "ที่สั่งแล้ว" ใน cart header bar
+  const bar = document.getElementById('previousOrdersBar');
+  if (bar) bar.classList.remove('hidden');
+
+  // เพิ่มปุ่มใน cart-title-row ด้วย
+  const titleRow = document.querySelector('.cart-title-row');
+  if (titleRow && !document.getElementById('prevOrdersBtnInline')) {
+    // ปุ่มอยู่ใน bar แล้ว ไม่ต้องเพิ่มซ้ำ
+  }
+
+  // Modal elements
+  const modal     = document.getElementById('prevOrdersModal');
+  const closeBtn  = document.getElementById('prevOrdersModalClose');
+  const tableLabel = document.getElementById('prevOrdersModalTable');
+  if (tableLabel) tableLabel.textContent = `โต๊ะ ${tableNum}`;
+
+  // Open modal
+  const openBtn = document.getElementById('prevOrdersBtn');
+  if (openBtn) {
+    openBtn.addEventListener('click', () => {
+      if (modal) modal.setAttribute('aria-hidden', 'false');
+    });
+  }
+
+  // Close modal
+  if (closeBtn) closeBtn.addEventListener('click', () => modal.setAttribute('aria-hidden', 'true'));
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) modal.setAttribute('aria-hidden', 'true'); });
+
+  // Start real-time listener
   startTableHistoryInCart(tableNum);
 }
 
 function startTableHistoryInCart(tableNum) {
-  const section = document.getElementById('previousOrdersSection');
-  if (!section) return;
-  section.classList.remove('hidden');
-
   onValue(ref(db, 'orders'), (snapshot) => {
     const tableOrders = [];
     if (snapshot.exists()) {
@@ -707,58 +757,60 @@ function startTableHistoryInCart(tableNum) {
       });
     }
     tableOrders.sort((a, b) => new Date(a.date) - new Date(b.date));
-    renderPreviousOrdersInCart(tableOrders);
+    renderPreviousOrdersInModal(tableOrders);
   });
 }
 
-function renderPreviousOrdersInCart(orders) {
-  const list = document.getElementById('previousOrdersList');
+function renderPreviousOrdersInModal(orders) {
   const chip = document.getElementById('prevOrdersTotalChip');
-  if (!list) return;
+  const body = document.getElementById('prevOrdersModalBody');
+
+  const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
+  if (chip) chip.textContent = orders.length > 0 ? formatMoney(totalAll) : '฿0.00';
+
+  if (!body) return;
 
   if (orders.length === 0) {
-    list.innerHTML = '<div class="prev-orders-empty">ยังไม่มีรายการ</div>';
-    if (chip) chip.textContent = '';
-    updateCartDivider();
+    body.innerHTML = `
+      <div class="prev-modal-empty">
+        <span class="prev-modal-empty-icon">🍽️</span>
+        <p>ยังไม่มีรายการสั่ง</p>
+      </div>`;
     return;
   }
 
-  const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
-  if (chip) chip.textContent = formatMoney(totalAll);
-
-  list.innerHTML = orders.map((order) => {
-    const isPending = order.status === 'pending';
-    const time = new Date(order.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-    return `
-      <div class="prev-order-card ${isPending ? 'pending' : 'paid'}">
-        <div class="prev-order-header">
-          <span class="prev-order-num">#${order.orderNumber} · ${time}</span>
-          <span class="prev-order-badge ${isPending ? 'pending' : 'paid'}">${isPending ? '⏳' : '✅'}</span>
-        </div>
-        <ul class="prev-order-items">
-          ${(order.items || []).map(i =>
-            `<li><span>${i.name} × ${i.qty}</span><span>${formatMoney(i.price * i.qty)}</span></li>`
-          ).join('')}
-        </ul>
-        <div class="prev-order-total">
-          <span>รวม</span><span>${formatMoney(order.total)}</span>
-        </div>
-      </div>`;
-  }).join('');
-
-  updateCartDivider();
+  const hasPending = orders.some(o => o.status === 'pending');
+  body.innerHTML = `
+    ${hasPending ? `<div class="prev-modal-notice">⏳ มีรายการรอชำระเงิน กรุณาติดต่อพนักงาน</div>` : ''}
+    <div class="prev-modal-summary">
+      <span>${orders.length} ออเดอร์</span>
+      <span class="prev-modal-summary-total">${formatMoney(totalAll)}</span>
+    </div>
+    ${orders.map((order) => {
+      const isPending = order.status === 'pending';
+      const time = new Date(order.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+      return `
+        <div class="prev-modal-card ${isPending ? 'pending' : 'paid'}">
+          <div class="prev-modal-card-header">
+            <span class="prev-modal-card-num">ออเดอร์ #${order.orderNumber} · ${time}</span>
+            <span class="prev-modal-card-badge ${isPending ? 'pending' : 'paid'}">${isPending ? '⏳ รอจ่าย' : '✅ จ่ายแล้ว'}</span>
+          </div>
+          <ul class="prev-modal-card-items">
+            ${(order.items || []).map(i =>
+              `<li><span>${i.name} × ${i.qty}</span><span>${formatMoney(i.price * i.qty)}</span></li>`
+            ).join('')}
+          </ul>
+          <div class="prev-modal-card-total">
+            <span>รวม</span><span>${formatMoney(order.total)}</span>
+          </div>
+        </div>`;
+    }).join('')}
+  `;
 }
 
-function updateCartDivider() {
-  const divider = document.getElementById('cartDivider');
-  if (!divider) return;
-  const hasPrev = document.querySelectorAll('.prev-order-card').length > 0;
-  const hasNew  = cart.length > 0;
-  divider.classList.toggle('hidden', !(hasPrev && hasNew));
-}
-
-// stub เพื่อป้องกัน error ใน non-QR mode
-function renderPreviousOrdersInCart_noop() {}
+// stub ที่ไม่ได้ใช้แล้ว แต่คงไว้เพื่อไม่ให้ error
+function updateCartDivider() {}
+function renderPreviousOrdersInCart() {}
 
 // ==================== Init ====================
 setDate();
