@@ -967,112 +967,147 @@ body {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(200,133,58,0.15);
-}
 
 /* ================================================
-   PREVIOUS ORDERS IN CART
+   PREVIOUS ORDERS BUTTON (QR Mode)
    ================================================ */
-.previous-orders-section {
-  border-bottom: 1.5px solid var(--cream-dark);
-  padding: 0.75rem 1rem 0.6rem;
-  background: var(--cream);
+.prev-orders-bar {
+  padding: 0.6rem 1rem 0;
 }
-.previous-orders-header {
+.prev-orders-btn {
+  width: 100%;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  gap: 0.6rem;
+  background: var(--cream);
+  border: 1.5px solid var(--cream-dark);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  font-family: 'Sarabun', sans-serif;
+  font-size: 0.9rem;
+  color: var(--brown);
+  transition: background var(--transition), border-color var(--transition);
 }
-.previous-orders-title {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--brown-mid);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.prev-orders-btn:hover {
+  background: var(--cream-mid);
+  border-color: var(--accent);
 }
-.previous-orders-total-chip {
+.prev-orders-btn-icon { font-size: 1rem; }
+.prev-orders-btn-label { flex: 1; font-weight: 600; text-align: left; }
+.prev-orders-btn-chip {
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--accent);
   background: rgba(200,133,58,0.12);
   border-radius: var(--radius-pill);
-  padding: 0.15rem 0.6rem;
-}
-.previous-orders-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-height: 220px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--cream-dark) transparent;
-}
-.prev-order-card {
-  background: var(--white);
-  border: 1.5px solid var(--cream-dark);
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 0.75rem;
-  font-size: 0.83rem;
-}
-.prev-order-card.pending { border-left: 3px solid var(--accent); }
-.prev-order-card.paid    { border-left: 3px solid var(--sage); }
-.prev-order-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.35rem;
-}
-.prev-order-num   { font-weight: 600; color: var(--brown); }
-.prev-order-badge { font-size: 0.75rem; }
-.prev-order-badge.pending { color: var(--accent); }
-.prev-order-badge.paid    { color: var(--sage); }
-.prev-order-items {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  margin-bottom: 0.35rem;
-}
-.prev-order-items li {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  color: var(--brown-light);
-}
-.prev-order-total {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--brown);
-  border-top: 1px solid var(--cream-dark);
-  padding-top: 0.3rem;
-}
-.prev-orders-empty {
-  font-size: 0.82rem;
-  color: var(--brown-light);
-  text-align: center;
-  padding: 0.5rem 0;
+  padding: 0.15rem 0.65rem;
 }
 
 /* ================================================
-   CART DIVIDER — "รายการใหม่"
+   PREVIOUS ORDERS MODAL
    ================================================ */
-.cart-divider {
+.prev-orders-modal-content {
+  max-width: 480px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+.prev-orders-modal-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--brown-light);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
 }
-.cart-divider::before,
-.cart-divider::after {
-  content: '';
+.prev-orders-modal-table {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--brown-light);
+  background: var(--cream-mid);
+  border-radius: var(--radius-pill);
+  padding: 0.2rem 0.75rem;
+}
+.prev-orders-modal-body {
   flex: 1;
-  height: 1px;
-  background: var(--cream-dark);
+  overflow-y: auto;
+  padding: 0.25rem 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cream-dark) transparent;
+}
+.prev-modal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1rem;
+  color: var(--brown-light);
+  font-size: 0.95rem;
+}
+.prev-modal-empty-icon { font-size: 2.5rem; opacity: 0.4; }
+.prev-modal-notice {
+  background: rgba(200,133,58,0.1);
+  border: 1px solid var(--accent-light);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  color: var(--brown-mid);
+}
+.prev-modal-summary {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--brown-light);
+  padding: 0 0.25rem;
+}
+.prev-modal-summary-total {
+  color: var(--accent);
+  font-weight: 700;
+}
+.prev-modal-card {
+  background: var(--white);
+  border: 1.5px solid var(--cream-dark);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
+  font-size: 0.88rem;
+}
+.prev-modal-card.pending { border-left: 3px solid var(--accent); }
+.prev-modal-card.paid    { border-left: 3px solid #7a9170; }
+.prev-modal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.prev-modal-card-num  { font-weight: 600; color: var(--brown); }
+.prev-modal-card-badge { font-size: 0.78rem; }
+.prev-modal-card-badge.pending { color: var(--accent); }
+.prev-modal-card-badge.paid    { color: #7a9170; }
+.prev-modal-card-items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.5rem;
+}
+.prev-modal-card-items li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.84rem;
+  color: var(--brown-light);
+}
+.prev-modal-card-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--brown);
+  border-top: 1px solid var(--cream-dark);
+  padding-top: 0.4rem;
+  margin-top: 0.1rem;
 }
