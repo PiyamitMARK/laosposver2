@@ -727,3 +727,78 @@ body {
   .qr-preview-card { padding: 1.5rem 1.25rem; }
   .tables-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
+
+/* ================================================
+   TABLE REVENUE TAB
+   ================================================ */
+.table-revenue-controls {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 1rem 0 1.25rem;
+  border-bottom: 1.5px solid var(--cream-dark);
+  margin-bottom: 1.25rem;
+}
+.table-revenue-summary {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  align-items: flex-start;
+}
+.table-revenue-summary .summary-card {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* Per-table breakdown table */
+.revenue-table-breakdown {
+  flex: 2;
+  min-width: 260px;
+  background: var(--white);
+  border: 1.5px solid var(--cream-dark);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+.revenue-breakdown-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--brown-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+.revenue-breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.revenue-breakdown-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--brown-mid);
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1.5px solid var(--cream-dark);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.revenue-breakdown-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--cream-mid);
+  color: var(--brown);
+}
+.revenue-breakdown-table tr:last-child td { border-bottom: none; }
+.revenue-breakdown-table td:last-child {
+  font-weight: 600;
+  color: var(--accent);
+  text-align: right;
+}
+.revenue-breakdown-table td:nth-child(2) {
+  color: var(--brown-light);
+  text-align: right;
+}
+.revenue-breakdown-table th:nth-child(2),
+.revenue-breakdown-table th:last-child { text-align: right; }
