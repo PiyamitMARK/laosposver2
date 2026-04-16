@@ -212,9 +212,8 @@ function showBlockedScreen(reason) {
 // ==================== Table Selection (Manual — non-QR mode) ====================
 function selectTable(tableNum) {
   selectedTable = tableNum;
-  document.querySelectorAll('.table-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.table === String(tableNum));
-  });
+  const sel = document.getElementById('tableSelect');
+  if (sel) sel.value = String(tableNum);
   productsOverlay.classList.add('hidden');
   tableChipEl.textContent = ` · โต๊ะ ${tableNum}`;
   renderProducts();
@@ -231,9 +230,13 @@ function updateOverlayTop() {
   }
 }
 
-document.querySelectorAll('.table-btn').forEach(btn => {
-  btn.addEventListener('click', () => selectTable(parseInt(btn.dataset.table)));
-});
+const tableSelect = document.getElementById('tableSelect');
+if (tableSelect) {
+  tableSelect.addEventListener('change', () => {
+    const val = parseInt(tableSelect.value);
+    if (!isNaN(val)) selectTable(val);
+  });
+}
 
 // ==================== Products ====================
 function renderProducts() {
@@ -305,14 +308,7 @@ function renderCart() {
     badge.style.display = totalQty > 0 ? 'inline-flex' : 'none';
   }
   totalEl.textContent = formatMoney(cart.reduce((sum, i) => sum + i.price * i.qty, 0));
-
-  const historyDiv = document.createElement('div');
-  historyDiv.className = 'cart-history-section';
-  historyDiv.innerHTML = `<h3 class="history-title">รายการที่สั่งแล้ว</h3>`;
-  
-  // ดึงข้อมูลรายการที่เคยสั่งของโต๊ะนี้มาแสดง (Logic เดิมที่มีอยู่แล้วในระบบ)
-  renderTableHistoryInCart(historyDiv); 
-  cartItemsEl.appendChild(historyDiv);
+  updateCartDivider();
 }
 
 function clearCart() {
@@ -392,7 +388,8 @@ async function newOrder() {
   if (!isQrMode) {
     selectedTable = null;
     tableChipEl.textContent = '';
-    document.querySelectorAll('.table-btn').forEach(b => b.classList.remove('active'));
+    const sel = document.getElementById('tableSelect');
+    if (sel) sel.value = '';
     productsOverlay.classList.remove('hidden');
   }
   renderCart();
@@ -688,52 +685,16 @@ async function initFromQR() {
   });
 }
 
-// ==================== History Tab (QR Mode) ====================
+// ==================== History in Cart (QR Mode) ====================
 function addHistoryTab(tableNum) {
-  // เพิ่มปุ่มแท็บ "ประวัติการสั่ง" ในแถบ category
-  const categories = document.querySelector('.categories');
-  if (!categories) return;
-
-  const historyTabBtn = document.createElement('button');
-  historyTabBtn.className = 'category-btn';
-  historyTabBtn.dataset.category = '__history__';
-  historyTabBtn.innerHTML = '📋 ที่สั่งแล้ว';
-  categories.appendChild(historyTabBtn);
-
-  // สร้าง history panel (ซ่อนไว้ก่อน)
-  const productsSection = document.querySelector('.products-section');
-  const historyPanel = document.createElement('div');
-  historyPanel.id = 'historyPanel';
-  historyPanel.className = 'table-history-panel hidden';
-  productsSection.appendChild(historyPanel);
-
-  // Start real-time listener
-  startTableHistoryListener(tableNum, historyPanel);
-
-  // ปุ่ม category ทั้งหมด รวมถึงแท็บใหม่
-  const allCatBtns = document.querySelectorAll('.category-btn');
-  allCatBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      allCatBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      if (btn.dataset.category === '__history__') {
-        // แสดง history panel, ซ่อน products grid
-        productsGrid.classList.add('hidden');
-        historyPanel.classList.remove('hidden');
-      } else {
-        // แสดง products grid, ซ่อน history panel
-        productsGrid.classList.remove('hidden');
-        historyPanel.classList.add('hidden');
-        currentCategory = btn.dataset.category;
-        renderProducts();
-      }
-    });
-  });
+  // ไม่สร้าง category tab แล้ว — แสดงประวัติใน cart section แทน
+  startTableHistoryInCart(tableNum);
 }
 
-function startTableHistoryListener(tableNum, container) {
-  container.innerHTML = '<div class="table-history-loading">กำลังโหลด...</div>';
+function startTableHistoryInCart(tableNum) {
+  const section = document.getElementById('previousOrdersSection');
+  if (!section) return;
+  section.classList.remove('hidden');
 
   onValue(ref(db, 'orders'), (snapshot) => {
     const tableOrders = [];
@@ -746,89 +707,58 @@ function startTableHistoryListener(tableNum, container) {
       });
     }
     tableOrders.sort((a, b) => new Date(a.date) - new Date(b.date));
-    renderHistoryPanel(tableOrders, container, tableNum);
+    renderPreviousOrdersInCart(tableOrders);
   });
 }
 
-function renderHistoryPanel(orders, container, tableNum) {
+function renderPreviousOrdersInCart(orders) {
+  const list = document.getElementById('previousOrdersList');
+  const chip = document.getElementById('prevOrdersTotalChip');
+  if (!list) return;
+
   if (orders.length === 0) {
-    container.innerHTML = `
-      <div class="table-history-empty">
-        <span class="table-history-empty-icon">🍽️</span>
-        <p>ยังไม่มีรายการสั่งสำหรับโต๊ะ ${tableNum}</p>
-        <p class="table-history-empty-sub">รายการจะแสดงที่นี่หลังจากที่คุณสั่งอาหาร</p>
-      </div>
-    `;
+    list.innerHTML = '<div class="prev-orders-empty">ยังไม่มีรายการ</div>';
+    if (chip) chip.textContent = '';
+    updateCartDivider();
     return;
   }
 
   const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
-  const totalItems = orders.reduce((sum, o) => sum + (o.items || []).reduce((s, i) => s + i.qty, 0), 0);
-  const hasPending = orders.some(o => o.status === 'pending');
+  if (chip) chip.textContent = formatMoney(totalAll);
 
-  container.innerHTML = `
-    <div class="table-history-wrap">
-      <div class="table-history-topbar">
-        <div class="table-history-stat">
-          <span class="table-history-stat-label">สั่งทั้งหมด</span>
-          <span class="table-history-stat-value">${totalItems} รายการ</span>
+  list.innerHTML = orders.map((order) => {
+    const isPending = order.status === 'pending';
+    const time = new Date(order.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="prev-order-card ${isPending ? 'pending' : 'paid'}">
+        <div class="prev-order-header">
+          <span class="prev-order-num">#${order.orderNumber} · ${time}</span>
+          <span class="prev-order-badge ${isPending ? 'pending' : 'paid'}">${isPending ? '⏳' : '✅'}</span>
         </div>
-        <div class="table-history-stat">
-          <span class="table-history-stat-label">จำนวนออเดอร์</span>
-          <span class="table-history-stat-value">${orders.length} ออเดอร์</span>
+        <ul class="prev-order-items">
+          ${(order.items || []).map(i =>
+            `<li><span>${i.name} × ${i.qty}</span><span>${formatMoney(i.price * i.qty)}</span></li>`
+          ).join('')}
+        </ul>
+        <div class="prev-order-total">
+          <span>รวม</span><span>${formatMoney(order.total)}</span>
         </div>
-        <div class="table-history-stat accent">
-          <span class="table-history-stat-label">ยอดรวม</span>
-          <span class="table-history-stat-value">${formatMoney(totalAll)}</span>
-        </div>
-      </div>
+      </div>`;
+  }).join('');
 
-      ${hasPending ? `
-        <div class="table-history-pending-notice">
-          ⏳ มีรายการที่รอชำระเงิน — กรุณาติดต่อพนักงาน
-        </div>
-      ` : ''}
-
-      <div class="table-history-orders">
-        ${orders.map((order) => {
-          const isPending = order.status === 'pending';
-          const time = new Date(order.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-          return `
-            <div class="table-history-card ${isPending ? 'pending' : 'paid'}">
-              <div class="table-history-card-header">
-                <div class="table-history-card-left">
-                  <span class="table-history-card-num">ออเดอร์ #${order.orderNumber}</span>
-                  <span class="table-history-card-time">${time} น.</span>
-                </div>
-                <span class="table-history-badge ${isPending ? 'pending' : 'paid'}">
-                  ${isPending ? '⏳ รอจ่าย' : '✅ จ่ายแล้ว'}
-                </span>
-              </div>
-              <ul class="table-history-card-items">
-                ${(order.items || []).map(i => `
-                  <li class="table-history-card-item">
-                    <span class="thci-name">${i.name}</span>
-                    <span class="thci-qty">× ${i.qty}</span>
-                    <span class="thci-price">${formatMoney(i.price * i.qty)}</span>
-                  </li>
-                `).join('')}
-              </ul>
-              <div class="table-history-card-footer">
-                <span>รวม</span>
-                <span class="table-history-card-total">${formatMoney(order.total)}</span>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-
-      <div class="table-history-grand">
-        <span class="table-history-grand-label">ยอดรวมทั้งหมด</span>
-        <span class="table-history-grand-value">${formatMoney(totalAll)}</span>
-      </div>
-    </div>
-  `;
+  updateCartDivider();
 }
+
+function updateCartDivider() {
+  const divider = document.getElementById('cartDivider');
+  if (!divider) return;
+  const hasPrev = document.querySelectorAll('.prev-order-card').length > 0;
+  const hasNew  = cart.length > 0;
+  divider.classList.toggle('hidden', !(hasPrev && hasNew));
+}
+
+// stub เพื่อป้องกัน error ใน non-QR mode
+function renderPreviousOrdersInCart_noop() {}
 
 // ==================== Init ====================
 setDate();
