@@ -727,13 +727,9 @@ async function initFromQR() {
 
 // ==================== History Modal (QR Mode) ====================
 function addHistoryTab(tableNum) {
-  // แสดงปุ่ม FAB มุมขวาบน (mobile)
+  // แสดงปุ่มมุมขวาบนใน header
   const bar = document.getElementById('previousOrdersBar');
   if (bar) bar.classList.remove('hidden');
-
-  // แสดงปุ่มใน cart sidebar (desktop)
-  const barDesktop = document.getElementById('prevOrdersBarDesktop');
-  if (barDesktop) barDesktop.classList.remove('hidden');
 
   // Modal elements
   const modal      = document.getElementById('prevOrdersModal');
@@ -744,13 +740,9 @@ function addHistoryTab(tableNum) {
   function openModal() { if (modal) modal.setAttribute('aria-hidden', 'false'); }
   function closeModal() { if (modal) modal.setAttribute('aria-hidden', 'true'); }
 
-  // Mobile FAB button
+  // Header button
   const openBtn = document.getElementById('prevOrdersBtn');
   if (openBtn) openBtn.addEventListener('click', openModal);
-
-  // Desktop sidebar button
-  const openBtnDesktop = document.getElementById('prevOrdersBtnDesktop');
-  if (openBtnDesktop) openBtnDesktop.addEventListener('click', openModal);
 
   // Close modal
   if (closeBtn) closeBtn.addEventListener('click', closeModal);
@@ -783,13 +775,11 @@ function startTableHistoryInCart(tableNum) {
 
 function renderPreviousOrdersInModal(orders) {
   const chip = document.getElementById('prevOrdersTotalChip');
-  const chipDesktop = document.getElementById('prevOrdersTotalChipDesktop');
   const body = document.getElementById('prevOrdersModalBody');
 
   const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
   const totalStr = orders.length > 0 ? formatMoney(totalAll) : '฿0.00';
   if (chip) chip.textContent = totalStr;
-  if (chipDesktop) chipDesktop.textContent = totalStr;
 
   if (!body) return;
 
