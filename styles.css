@@ -969,15 +969,73 @@ body {
   box-shadow: 0 0 0 3px rgba(200,133,58,0.15);
 
 /* ================================================
-   PREVIOUS ORDERS BUTTON (QR Mode)
+   PREVIOUS ORDERS FAB — fixed มุมขวาบน (QR Mode)
    ================================================ */
-.prev-orders-bar {
-  padding: 0.6rem 1rem 0;
+.prev-orders-fab {
+  position: fixed;
+  top: 10px;
+  right: 12px;
+  z-index: 60; /* สูงกว่า header (z-index:50) */
 }
-.prev-orders-btn {
+
+.prev-orders-fab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--brown);
+  color: var(--white);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.75rem 0.45rem 0.6rem;
+  cursor: pointer;
+  font-family: 'Sarabun', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(61,43,31,0.3);
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.prev-orders-fab-btn:hover {
+  background: var(--brown-mid);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(61,43,31,0.35);
+}
+.prev-orders-fab-btn:active { transform: translateY(0); }
+
+.prev-orders-fab-icon { font-size: 1rem; line-height: 1; }
+
+.prev-orders-fab-chip {
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: var(--accent);
+  color: var(--white);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.5rem;
+  min-width: 48px;
+  text-align: center;
+}
+
+/* Desktop: ซ่อนบน desktop เพราะ cart sidebar กว้างพอ */
+@media (min-width: 901px) {
+  .prev-orders-fab { display: none !important; }
+  /* บน desktop แสดงปุ่มใน cart-section แทน */
+  .prev-orders-bar-desktop {
+    display: block;
+    padding: 0.6rem 1rem 0;
+  }
+}
+
+/* Mobile: ซ่อน label ให้เหลือแค่ icon + ยอด */
+@media (max-width: 900px) {
+  .prev-orders-bar-desktop { display: none !important; }
+}
+
+/* Desktop button style */
+.prev-orders-btn-desktop {
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.6rem;
   background: var(--cream);
   border: 1.5px solid var(--cream-dark);
@@ -986,16 +1044,15 @@ body {
   cursor: pointer;
   font-family: 'Sarabun', sans-serif;
   font-size: 0.9rem;
+  font-weight: 600;
   color: var(--brown);
   transition: background var(--transition), border-color var(--transition);
 }
-.prev-orders-btn:hover {
+.prev-orders-btn-desktop:hover {
   background: var(--cream-mid);
   border-color: var(--accent);
 }
-.prev-orders-btn-icon { font-size: 1rem; }
-.prev-orders-btn-label { flex: 1; font-weight: 600; text-align: left; }
-.prev-orders-btn-chip {
+.prev-orders-btn-chip-desktop {
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--accent);
