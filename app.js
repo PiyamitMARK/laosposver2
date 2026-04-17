@@ -7,7 +7,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getDatabase, ref, push, update, get, onValue, query, orderByChild, equalTo
+  getDatabase, ref, push, update, get, set, onValue, query, orderByChild, equalTo
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -350,18 +350,93 @@ async function loadOrderNumber() {
   orderNumberEl.textContent = orderNumber;
 }
 
-// ==================== Firebase: Save Order ====================
+// ==================== Firebase: Session-based Order ====================
+/**
+ * แนวคิดใหม่: 1 order ต่อ 1 session โต๊ะ
+ * - เมื่อเปิดโต๊ะ admin จะสร้าง currentOrderKey ไว้ใน tables/{n}
+ * - ทุกครั้งที่ลูกค้ากด "สั่งซื้อ" จะ merge รายการเข้า order เดิม ไม่สร้างใหม่
+ * - order จบเมื่อปิดโต๊ะ
+ */
 async function saveOrder() {
-  const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const newItems = cart.map((i) => ({ name: i.name, price: i.price, qty: i.qty }));
+  const addedTotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+
+  if (isQrMode && selectedTable) {
+    // QR mode: ดึง currentOrderKey จาก table
+    const tableSnap = await get(ref(db, `tables/${selectedTable}`));
+    const tableData = tableSnap.exists() ? tableSnap.val() : {};
+    const orderKey  = tableData.currentOrderKey || null;
+
+    if (orderKey) {
+      // Merge เข้า order เดิม
+      const orderSnap = await get(ref(db, `orders/${orderKey}`));
+      if (orderSnap.exists()) {
+        const existing = orderSnap.val();
+        const merged = mergeItems(existing.items || [], newItems);
+        const newTotal = merged.reduce((s, i) => s + i.price * i.qty, 0);
+        await update(ref(db, `orders/${orderKey}`), {
+          items: merged,
+          total: newTotal,
+          lastUpdated: new Date().toISOString(),
+        });
+        return; // done
+      }
+    }
+
+    // ยังไม่มี order → สร้างใหม่
+    await createNewTableOrder(newItems, addedTotal, tableData);
+
+  } else {
+    // Non-QR (manual): สร้าง order ใหม่ทุกครั้ง (พนักงานสั่งเอง)
+    const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const order = {
+      orderNumber,
+      table: selectedTable,
+      date: new Date().toISOString(),
+      items: newItems,
+      total,
+      status: 'pending',
+      sessionOrderKey: null,
+    };
+    await push(ref(db, 'orders'), order);
+  }
+}
+
+function mergeItems(existing, incoming) {
+  const map = {};
+  existing.forEach(i => { map[`${i.name}__${i.price}`] = { ...i }; });
+  incoming.forEach(i => {
+    const k = `${i.name}__${i.price}`;
+    if (map[k]) map[k].qty += i.qty;
+    else map[k] = { ...i };
+  });
+  return Object.values(map);
+}
+
+async function createNewTableOrder(items, total, tableData) {
+  // ออก orderNumber ใหม่
+  const today = new Date().toISOString().slice(0, 10);
+  const metaSnap = await get(ref(db, 'meta'));
+  const meta = metaSnap.exists() ? metaSnap.val() : {};
+  let nextNum = (meta.lastOrderDate === today) ? (meta.orderNumber || 1001) : 1001;
+
   const order = {
-    orderNumber,
+    orderNumber: nextNum,
     table: selectedTable,
     date: new Date().toISOString(),
-    items: cart.map((i) => ({ name: i.name, price: i.price, qty: i.qty })),
+    openedAt: tableData.openedAt || new Date().toISOString(),
+    items,
     total,
     status: 'pending',
+    sessionOrder: true,
   };
-  await push(ref(db, 'orders'), order);
+  const newRef = await push(ref(db, 'orders'), order);
+  // บันทึก key กลับไปที่ table
+  await update(ref(db, `tables/${selectedTable}`), { currentOrderKey: newRef.key });
+  // อัปเดต meta
+  orderNumber = nextNum;
+  orderNumberEl.textContent = orderNumber;
+  await update(ref(db, 'meta'), { orderNumber: nextNum, lastOrderDate: today });
 }
 
 // ==================== Receipt ====================
@@ -374,6 +449,8 @@ function showReceipt() {
     `<div class="receipt-item"><span>${i.name} × ${i.qty}</span><span>${formatMoney(i.price * i.qty)}</span></div>`
   ).join('');
   receiptTotal.textContent = formatMoney(total);
+  // QR mode: ปุ่ม "สั่งอีกครั้ง" → "สั่งเพิ่ม"
+  if (newOrderBtn) newOrderBtn.textContent = isQrMode ? '+ สั่งเพิ่ม' : '✓ สั่งออเดอร์ใหม่';
   receiptModal.setAttribute('aria-hidden', 'false');
 }
 
@@ -405,22 +482,24 @@ function closeConfirmOrderModal() {
   confirmOrderModal.setAttribute('aria-hidden', 'true');
 }
 
-// ==================== New Order ====================
+// ==================== New Order (after receipt closed) ====================
 async function newOrder() {
-  orderNumber += 1;
-  orderNumberEl.textContent = orderNumber;
-  await update(ref(db, 'meta'), {
-    orderNumber,
-    lastOrderDate: new Date().toISOString().slice(0, 10)
-  });
-  cart = [];
+  // Non-QR mode: advance order number
   if (!isQrMode) {
+    orderNumber += 1;
+    orderNumberEl.textContent = orderNumber;
+    await update(ref(db, 'meta'), {
+      orderNumber,
+      lastOrderDate: new Date().toISOString().slice(0, 10)
+    });
     selectedTable = null;
     tableChipEl.textContent = '';
     const sel = document.getElementById('tableSelect');
     if (sel) sel.value = '';
     productsOverlay.classList.remove('hidden');
   }
+  // QR mode: ออเดอร์ยังอยู่ (session ยังเปิด) — แค่ล้าง cart รอสั่งรอบต่อไป
+  cart = [];
   renderCart();
   closeReceipt();
 }
@@ -769,23 +848,28 @@ function addHistoryTab(tableNum) {
 }
 
 function startTableHistoryInCart(tableNum) {
-  // ดึง openedAt ปัจจุบันจาก sessionStorage เพื่อ filter เฉพาะออเดอร์ของ session นี้
-  const currentOpenedAt = getStoredOpenedAt(tableNum);
+  // real-time listener บน orders — filter เฉพาะ session นี้
+  onValue(ref(db, 'orders'), async (snapshot) => {
+    // ดึง currentOrderKey ปัจจุบัน
+    const tableSnap = await get(ref(db, `tables/${tableNum}`));
+    const tableData = tableSnap.exists() ? tableSnap.val() : {};
+    const currentOrderKey = tableData.currentOrderKey || null;
+    const currentOpenedAt = tableData.openedAt || null;
 
-  onValue(ref(db, 'orders'), (snapshot) => {
-    const tableOrders = [];
+    let sessionOrders = [];
     if (snapshot.exists()) {
       snapshot.forEach((child) => {
         const o = child.val();
-        if (String(o.table) === String(tableNum)) {
-          // ถ้ามี openedAt ให้กรองเฉพาะออเดอร์ที่สั่งหลังจากเปิดโต๊ะรอบนี้
-          if (currentOpenedAt && o.date < currentOpenedAt) return;
-          tableOrders.push({ firebaseKey: child.key, ...o });
+        if (String(o.table) !== String(tableNum)) return;
+        // ถ้ามี currentOrderKey ให้โชว์เฉพาะ order นั้น
+        if (currentOrderKey) {
+          if (child.key === currentOrderKey) sessionOrders.push({ firebaseKey: child.key, ...o });
+        } else if (currentOpenedAt && o.date >= currentOpenedAt) {
+          sessionOrders.push({ firebaseKey: child.key, ...o });
         }
       });
     }
-    tableOrders.sort((a, b) => new Date(a.date) - new Date(b.date));
-    renderPreviousOrdersInModal(tableOrders);
+    renderPreviousOrdersInModal(sessionOrders);
   });
 }
 
@@ -793,13 +877,27 @@ function renderPreviousOrdersInModal(orders) {
   const btnChip = document.getElementById('historyBtnChip');
   const body    = document.getElementById('prevOrdersModalBody');
 
-  const totalAll = orders.reduce((sum, o) => sum + o.total, 0);
-  const totalStr = orders.length > 0 ? formatMoney(totalAll) : '';
-  if (btnChip) btnChip.textContent = totalStr;
+  // สำหรับ session-order ใหม่ orders จะมีแค่ 1 record เสมอ
+  // รวม items ทั้งหมดเพื่อแสดง
+  const allItems = [];
+  orders.forEach(o => (o.items || []).forEach(i => allItems.push(i)));
+  const merged = {};
+  allItems.forEach(i => {
+    const k = `${i.name}__${i.price}`;
+    if (!merged[k]) merged[k] = { name: i.name, price: i.price, qty: 0 };
+    merged[k].qty += i.qty;
+  });
+  const items = Object.values(merged);
+  const totalAll = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const totalQty = items.reduce((s, i) => s + i.qty, 0);
+
+  if (btnChip) {
+    btnChip.textContent = totalAll > 0 ? formatMoney(totalAll) : '';
+  }
 
   if (!body) return;
 
-  if (orders.length === 0) {
+  if (items.length === 0) {
     body.innerHTML = `
       <div class="prev-modal-empty">
         <span class="prev-modal-empty-icon">🍽️</span>
@@ -808,18 +906,15 @@ function renderPreviousOrdersInModal(orders) {
     return;
   }
 
-  // รวมรายการซ้ำทุก order เข้าด้วยกัน (key = name+price)
-  const merged = {};
-  orders.forEach(o => {
-    (o.items || []).forEach(i => {
-      const key = `${i.name}__${i.price}`;
-      if (!merged[key]) merged[key] = { name: i.name, price: i.price, qty: 0 };
-      merged[key].qty += i.qty;
-    });
-  });
-  const items = Object.values(merged);
+  const status = orders[0]?.status || 'pending';
+  const isPending = status === 'pending';
 
   body.innerHTML = `
+    <div class="prev-modal-status-bar ${isPending ? 'pending' : 'paid'}">
+      <span class="prev-modal-status-icon">${isPending ? '⏳' : '✅'}</span>
+      <span class="prev-modal-status-text">${isPending ? 'รอชำระเงิน' : 'ชำระเงินแล้ว'}</span>
+      <span class="prev-modal-status-qty">${totalQty} รายการ</span>
+    </div>
     <ul class="prev-modal-items-list">
       ${items.map(i => `
         <li class="prev-modal-item">
@@ -829,7 +924,7 @@ function renderPreviousOrdersInModal(orders) {
         </li>`).join('')}
     </ul>
     <div class="prev-modal-grand">
-      <span>ยอดรวม</span>
+      <span>ยอดรวมทั้งหมด</span>
       <span>${formatMoney(totalAll)}</span>
     </div>
   `;
