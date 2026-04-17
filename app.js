@@ -414,11 +414,12 @@ function mergeItems(existing, incoming) {
 }
 
 async function createNewTableOrder(items, total, tableData) {
-  // ออก orderNumber ใหม่
+  // ออก orderNumber ใหม่ — ต้อง increment ก่อนใช้เสมอ
   const today = new Date().toISOString().slice(0, 10);
   const metaSnap = await get(ref(db, 'meta'));
   const meta = metaSnap.exists() ? metaSnap.val() : {};
-  let nextNum = (meta.lastOrderDate === today) ? (meta.orderNumber || 1001) : 1001;
+  // ถ้าวันเดียวกัน → เอาค่าปัจจุบัน +1, ถ้าวันใหม่ → เริ่ม 1001
+  let nextNum = (meta.lastOrderDate === today) ? ((meta.orderNumber || 1000) + 1) : 1001;
 
   const order = {
     orderNumber: nextNum,
