@@ -802,3 +802,51 @@ body {
 }
 .revenue-breakdown-table th:nth-child(2),
 .revenue-breakdown-table th:last-child { text-align: right; }
+
+/* ================================================
+   TABLE ORDER INFO — in table card (admin)
+   ================================================ */
+.table-order-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  background: var(--cream-mid, #f0e9de);
+  border-radius: 6px;
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.82rem;
+  flex-wrap: wrap;
+}
+.table-order-num {
+  font-weight: 600;
+  color: var(--brown, #3d2b1f);
+}
+.table-order-qty {
+  color: var(--brown-light, #8b6655);
+  font-size: 0.78rem;
+}
+.table-order-total {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--accent, #c8853a);
+}
+
+/* ================================================
+   SESSION ORDER CHIP
+   ================================================ */
+.order-session-chip {
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(200,133,58,0.12);
+  color: var(--accent, #c8853a);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  vertical-align: middle;
+  margin-left: 0.3rem;
+  border: 1px solid rgba(200,133,58,0.25);
+}
+
+/* session order card — subtle left accent */
+.order-card.session-order {
+  border-left: 3px solid var(--accent, #c8853a);
+}
