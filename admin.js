@@ -142,21 +142,30 @@ async function clearAllOrders() {
 
 // ==================== Firebase: Table Actions ====================
 async function openTable(tableNum) {
-  // ใช้ token เดิมถ้ามี (QR ไม่เปลี่ยน) — ออก token ใหม่เฉพาะครั้งแรก
   const existing = tableStates[tableNum];
   const token = (existing && existing.token) ? existing.token : generateToken();
   await set(ref(db, `tables/${tableNum}`), {
     status: 'open',
     token,
     openedAt: new Date().toISOString(),
-    firstScannedAt: null,  // รีเซ็ต scan window
+    firstScannedAt: null,
+    currentOrderKey: null,  // รีเซ็ต — order จะสร้างเมื่อลูกค้าสั่งครั้งแรก
   });
 }
 
 async function closeTable(tableNum) {
+  // ถ้ามี currentOrderKey ให้ mark เป็น paid
+  const tableData = tableStates[tableNum];
+  if (tableData && tableData.currentOrderKey) {
+    await update(ref(db, `orders/${tableData.currentOrderKey}`), {
+      status: 'paid',
+      closedAt: new Date().toISOString(),
+    });
+  }
   await update(ref(db, `tables/${tableNum}`), {
     status: 'closed',
     closedAt: new Date().toISOString(),
+    currentOrderKey: null,
   });
 }
 
@@ -179,15 +188,16 @@ function renderOrders() {
   ordersList.classList.remove('hidden');
   ordersList.innerHTML = allOrders.map((order) => {
     const isPending = order.status === 'pending';
+    const isSession = order.sessionOrder === true;
     return `
-      <article class="order-card" data-key="${order.firebaseKey}">
+      <article class="order-card ${isSession ? 'session-order' : ''}" data-key="${order.firebaseKey}">
         <div class="order-card-header">
           <div class="order-card-header-row">
-            <h3 class="order-card-title">ออเดอร์ #${order.orderNumber}${order.table ? ` <span class="order-table-chip">โต๊ะ ${order.table}</span>` : ''}</h3>
+            <h3 class="order-card-title">ออเดอร์ #${order.orderNumber}${order.table ? ` <span class="order-table-chip">โต๊ะ ${order.table}</span>` : ''}${isSession ? '<span class="order-session-chip">Session</span>' : ''}</h3>
             <span class="status-badge ${isPending ? 'pending' : 'paid'}">${isPending ? '⏳ รอจ่าย' : '✅ จ่ายแล้ว'}</span>
           </div>
           <div class="order-card-header-row">
-            <span class="order-card-date">${formatDate(order.date)}</span>
+            <span class="order-card-date">${formatDate(order.date)}${order.lastUpdated ? ` · อัปเดต ${formatDate(order.lastUpdated)}` : ''}</span>
             <div class="order-actions">
               ${isPending ? `<button type="button" class="btn-paid" data-key="${order.firebaseKey}">จ่ายแล้ว</button>` : ''}
               <button type="button" class="btn-delete" data-key="${order.firebaseKey}" data-num="${order.orderNumber}">ลบ</button>
@@ -274,6 +284,26 @@ function renderTablesGrid() {
       ? `เปิดเมื่อ ${new Date(t.openedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`
       : '';
 
+    // ดึงข้อมูล order ปัจจุบันของโต๊ะนี้
+    let orderInfo = '';
+    let orderTotal = '';
+    let orderStatus = '';
+    if (isOpen && t.currentOrderKey) {
+      const order = allOrders.find(o => o.firebaseKey === t.currentOrderKey);
+      if (order) {
+        const totalQty = (order.items || []).reduce((s, i) => s + i.qty, 0);
+        orderTotal = formatMoney(order.total);
+        orderStatus = order.status;
+        orderInfo = `<div class="table-order-info">
+          <span class="table-order-num">ออเดอร์ #${order.orderNumber}</span>
+          <span class="table-order-qty">${totalQty} รายการ</span>
+          <span class="table-order-total">${orderTotal}</span>
+        </div>`;
+      }
+    }
+
+    const isPending = orderStatus === 'pending';
+
     return `
       <div class="table-mgmt-card ${isOpen ? 'open' : 'closed'}">
         <div class="table-mgmt-header">
@@ -281,9 +311,11 @@ function renderTablesGrid() {
           <span class="table-mgmt-status ${isOpen ? 'open' : 'closed'}">${isOpen ? '🟢 เปิด' : '⭕ ปิด'}</span>
         </div>
         ${openedAgo ? `<p class="table-mgmt-time">${openedAgo}</p>` : ''}
+        ${orderInfo}
         <div class="table-mgmt-actions">
           ${isOpen
-            ? `<button class="btn btn-sm btn-outline-danger" data-close="${n}">ปิดโต๊ะ</button>
+            ? `${isPending && t.currentOrderKey ? `<button class="btn btn-sm btn-primary" data-pay="${n}" data-key="${t.currentOrderKey}">💰 จ่ายแล้ว</button>` : ''}
+               <button class="btn btn-sm btn-outline-danger" data-close="${n}">ปิดโต๊ะ</button>
                <button class="btn btn-sm btn-outline" data-qr="${n}" data-url="${qrUrl}">📋 คัดลอก URL</button>`
             : `<button class="btn btn-sm btn-green" data-open="${n}">เปิดโต๊ะ</button>`
           }
@@ -300,9 +332,15 @@ function renderTablesGrid() {
   grid.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const n = parseInt(btn.dataset.close);
-      if (!confirm(`ปิดโต๊ะ ${n}? ลูกค้าที่ยังสั่งอยู่จะไม่สามารถสั่งต่อได้`)) return;
+      if (!confirm(`ปิดโต๊ะ ${n}? ออเดอร์ปัจจุบันจะถูกบันทึกเป็น "จ่ายแล้ว" อัตโนมัติ`)) return;
       btn.disabled = true;
       await closeTable(n);
+    });
+  });
+  grid.querySelectorAll('[data-pay]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      await markOrderAsPaid(btn.dataset.key);
     });
   });
   grid.querySelectorAll('[data-qr]').forEach(btn => {
